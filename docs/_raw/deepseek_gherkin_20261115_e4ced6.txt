@@ -1,0 +1,30 @@
+Feature: Weather risk
+  Scenario: Outdoor wedding risk
+    Given a location "Victoria Falls, Zimbabwe" and activity "outdoor_wedding"
+    And date "2026-11-20"
+    When analyze_weather_risk is called
+    Then response includes risk_level, recommendations and confidence
+    And response labels official vs model-derived data
+
+Feature: Route optimization (Harare -> Bulawayo)
+  Scenario: Avoid congestion, rain and damaged road
+    Given origin "Harare" destination "Bulawayo" profile "safest"
+    And congestion on route A, heavy rain on route B section, damaged road report
+    When optimize_route is called
+    Then the recommended route is not the congested or flooded option
+    And the response includes cost_breakdown and explanation
+    And low-confidence reports did not close any road
+
+Feature: Voice agent (Mutare)
+  Scenario: Avoid potholes and heavy rain
+    Given a driver session in English
+    When the driver says "fastest route to Mutare, avoid potholes and heavy rain"
+    Then the agent queries routing and weather tools
+    And responds by voice with a ranked route and reasons
+    And starts journey monitoring
+
+Feature: Tenant isolation
+  Scenario: Cross-tenant access denied
+    Given tenant A has a journey
+    When tenant B requests that journey
+    Then the response is 404 and no data is leaked

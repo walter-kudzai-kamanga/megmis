@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version='0.6' generator='megmis-seed'>
+  <node id='1' lat='-17.8252' lon='31.0335'/>
+  <node id='2' lat='-18.5' lon='30.0'/>
+  <node id='3' lat='-19.5' lon='29.2'/>
+  <node id='4' lat='-20.1325' lon='28.6265'/>
+  <node id='5' lat='-18.9707' lon='32.6709'/>
+  <way id='10'>
+    <nd ref='1'/><nd ref='2'/><nd ref='3'/><nd ref='4'/>
+    <tag k='highway' v='trunk'/>
+    <tag k='name' v='A5 Harare-Bulawayo'/>
+    <tag k='ref' v='A5'/>
+  </way>
+  <way id='11'>
+    <nd ref='1'/><nd ref='5'/>
+    <tag k='highway' v='primary'/>
+    <tag k='name' v='A3 Harare-Mutare'/>
+    <tag k='ref' v='A3'/>
+  </way>
+</osm>

@@ -1,0 +1,88 @@
+openapi: 3.1.0
+info:
+  title: Mamiriro Intelligence API
+  version: 0.1.0
+  description: REST surface of MEGMIS. Shared intelligence services behind REST, MCP, WS.
+servers:
+  - url: https://api.mamiriro.example/v1
+security:
+  - ApiKeyAuth: []
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object }
+        request_id: { type: string }
+    Provenance:
+      type: object
+      required: [data_source, confidence, retrieved_at]
+      properties:
+        data_source: { type: string }
+        confidence: { type: string, enum: [high, medium, low, forecast-dependent] }
+        retrieved_at: { type: string, format: date-time }
+        official_vs_model: { type: string, enum: [official, model_derived, mixed] }
+    RouteRequest:
+      type: object
+      required: [origin, destination, profile]
+      properties:
+        origin: { $ref: '#/components/schemas/LatLon' }
+        destination: { $ref: '#/components/schemas/LatLon' }
+        waypoints:
+          type: array
+          items: { $ref: '#/components/schemas/LatLon' }
+        profile: { type: string, enum: [fastest, safest, cheapest, fuel] }
+        vehicle_class: { type: string, enum: [car, light_truck, hgv] }
+        departure_time: { type: string, format: date-time }
+    LatLon:
+      type: object
+      required: [lat, lon]
+      properties:
+        lat: { type: number }
+        lon: { type: number }
+paths:
+  /weather/current:
+    get:
+      summary: Current weather for a location
+      parameters:
+        - { name: lat, in: query, required: true, schema: { type: number } }
+        - { name: lon, in: query, required: true, schema: { type: number } }
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /weather/forecast:
+    get: { summary: Forecast, responses: { '200': { description: OK } } }
+  /weather/alerts:
+    get: { summary: Active alerts, responses: { '200': { description: OK } } }
+  /weather/risk:
+    post: { summary: Activity-based weather risk, responses: { '200': { description: OK } } }
+  /geo/geocode:
+    get: { summary: Geocode, responses: { '200': { description: OK } } }
+  /geo/nearby:
+    get: { summary: Nearby places, responses: { '200': { description: OK } } }
+  /routes/optimize:
+    post:
+      summary: Optimised routes with explanations
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/RouteRequest' } } }
+      responses: { '200': { description: OK } }
+  /journeys:
+    post: { summary: Create monitored journey, responses: { '201': { description: Created } } }
+  /journeys/{id}:
+    get: { summary: Journey status, responses: { '200': { description: OK } } }
+  /roads/reports:
+    post: { summary: Submit road-condition report, responses: { '201': { description: Created } } }
+  /roads/incidents:
+    get: { summary: List incidents, responses: { '200': { description: OK } } }
+  /agents/sessions:
+    post: { summary: Start agent session, responses: { '201': { description: Created } } }
+  /webhooks:
+    post: { summary: Register webhook, responses: { '201': { description: Created } } }

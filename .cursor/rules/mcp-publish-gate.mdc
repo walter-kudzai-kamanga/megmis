@@ -1,0 +1,14 @@
+---
+description: After MCP is built and tested, follow the publish & worldwide discovery playbook before calling the project done.
+alwaysApply: true
+---
+
+# MCP publish gate (final project phase)
+
+When Gen‑1 MCP work is complete, tests are green, the user asks to **publish / ship / release / list / discover** the server, or you are about to declare the MCP “done”:
+
+1. **Do not stop at code.** Open and execute [docs/operations/mcp-publish-and-discover.md](docs/operations/mcp-publish-and-discover.md) phase by phase.
+2. This server is **dual transport**: PyPI/stdio (`megmis-mcp`) **and** Streamable HTTP (`/mcp`). Cover both in packaging, `server.json`, and directory listings.
+3. Minimum “recognized worldwide” bar: PyPI or public HTTPS MCP + official MCP Registry + ≥3 client/directory submissions + working README install snippets + CI republish on tags.
+4. Prefer automating registry/PyPI updates in CI over one-off manual publishes.
+5. If the user only asked for a code fix but MCP is already green and they want “what’s next,” point them at that playbook and offer to run the next unchecked phase.

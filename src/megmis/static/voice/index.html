@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mamiriro Lab — Voice + API Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="/voice/lab.css?v=5" />
+</head>
+<body>
+  <div class="app">
+    <div id="banner" class="banner" hidden></div>
+    <header class="hero">
+      <div>
+        <h1 class="brand">MAMIRI<span>RO</span></h1>
+        <p class="tagline">
+          Voice + API lab — exercise every REST route and MCP tool this server exposes,
+          with interactive routing, tool traces, and spoken replies.
+        </p>
+      </div>
+      <div class="hero-side">
+        <label class="field">API key
+          <input id="api-key" spellcheck="false" autocomplete="off"
+            value="meg_local_49a3245c285d784ab6f8a9d86e961c8f" />
+        </label>
+        <div class="lang-pills" aria-label="Language">
+          <button type="button" data-lang="en" class="active">English</button>
+          <button type="button" data-lang="sn">Shona</button>
+          <button type="button" data-lang="nd">Ndebele</button>
+        </div>
+        <div class="ctrl-row">
+          <button type="button" id="btn-session">Open session</button>
+          <button type="button" id="btn-mutare" class="ghost">Run Mutare scenario</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="stack">
+        <section class="panel">
+          <h2>Live channel</h2>
+          <p class="sub">Hold the mic to capture audio for Whisper, or type an utterance. WebSocket keeps the agent turn stream hot.</p>
+          <div class="mic-stage">
+            <button type="button" class="mic-btn" id="mic">Mic</button>
+            <canvas id="wave" aria-label="Waveform"></canvas>
+          </div>
+          <div class="ctrl-row" style="margin-top:0.9rem">
+            <textarea id="utterance" rows="2" placeholder="Ask: route from Bulawayo to Gweru…" style="flex:1;min-width:220px;border-radius:12px"></textarea>
+            <button type="button" id="btn-send">Send</button>
+          </div>
+          <div id="transcript" class="transcript" aria-live="polite" style="margin-top:0.9rem"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Mutare acceptance path</h2>
+          <p class="sub">Agent queries tools → speaks ranked route → starts journey monitoring.</p>
+          <ol class="scenario-steps" id="scenario-steps">
+            <li>Plan safest Harare → Mutare route (optimize_route + risk)</li>
+            <li>Corridor weather for Mutare</li>
+            <li>Start journey monitoring and confirm spoken alert</li>
+          </ol>
+        </section>
+      </div>
+
+      <div class="stack">
+        <section class="panel">
+          <h2>Tool timeline</h2>
+          <p class="sub">Every agent turn shows which intelligence services were invoked.</p>
+          <div class="tools" id="tools">
+            <div class="tool-row"><span class="dot warn"></span><span>No tools yet</span><span>—</span></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Live results</h2>
+          <p class="sub">Dijkstra-ranked corridors on the map — safest / fastest / fuel profiles from the Zimbabwe highway graph.</p>
+          <div id="route-map" class="route-map" aria-label="Route map"></div>
+          <div id="results" class="results">
+            <div class="result-empty">Try: “route from Bulawayo to Gweru” or “weather in Victoria Falls”.</div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <section class="panel explorer" id="api-explorer">
+      <div class="explorer-head">
+        <div>
+          <h2>API Explorer</h2>
+          <p class="sub">
+            Live catalog from <code>/openapi.json</code> and MCP <code>tools/list</code> —
+            run any REST endpoint or MCP tool against this server.
+          </p>
+        </div>
+        <div class="ctrl-row">
+          <button type="button" data-api-tab="rest" class="active">REST</button>
+          <button type="button" data-api-tab="mcp" class="ghost">MCP tools</button>
+          <button type="button" data-api-tab="smoke" class="ghost">Smoke suite</button>
+          <button type="button" id="btn-api-reload" class="ghost">Reload catalog</button>
+        </div>
+      </div>
+      <div class="explorer-toolbar">
+        <input id="api-filter" type="search" placeholder="Filter paths / tools…" />
+        <span class="chip" id="api-count">loading…</span>
+        <span class="chip" id="api-status">idle</span>
+      </div>
+      <div class="explorer-layout">
+        <aside id="api-catalog" class="api-catalog" aria-label="API catalog"></aside>
+        <div class="explorer-main">
+          <p class="api-meta" id="api-meta">Select an operation</p>
+          <div class="ctrl-row">
+            <input id="api-method" class="api-method" readonly />
+            <input id="api-path" class="api-path" spellcheck="false" />
+            <button type="button" id="btn-api-run">Run</button>
+            <button type="button" id="btn-api-smoke" class="ghost">Run smoke suite</button>
+          </div>
+          <div class="explorer-fields">
+            <label>Query JSON
+              <textarea id="api-query" rows="4" spellcheck="false">{}</textarea>
+            </label>
+            <label>Body / MCP arguments JSON
+              <textarea id="api-body" rows="10" spellcheck="false">{}</textarea>
+            </label>
+          </div>
+          <label class="api-response-label">Response
+            <pre id="api-response" class="api-response">Select an operation and press Run.</pre>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <div class="status-bar">
+      <span class="chip" id="chip-session">no session</span>
+      <span class="chip" id="chip-ws">ws idle</span>
+      <span class="chip" id="chip-journey">journey idle</span>
+      <span class="chip" id="chip-scenario">scenario idle</span>
+      <span class="chip">STT: Whisper · TTS: edge / mock</span>
+    </div>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="/voice/lab.js?v=5"></script>
+  <script src="/voice/explorer.js?v=5"></script>
+</body>
+</html>

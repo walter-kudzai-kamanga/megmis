@@ -1,0 +1,117 @@
+services:
+  api:
+    build:
+      context: .
+      target: prod
+    image: megmis-api:local
+    entrypoint: ["/app/scripts/entrypoint.sh"]
+    command: ["uvicorn", "megmis.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      AUTH_DISABLED: "false"
+      USE_PERSISTENCE: "true"
+      DATABASE_URL: postgresql+psycopg://megmis:megmis@postgres:5432/megmis
+      DATABASE_APP_URL: postgresql+psycopg://megmis_app:megmis_app@postgres:5432/megmis
+      USE_APP_ROLE: "true"
+      REDIS_URL: redis://redis:6379/0
+      WEATHER_PROVIDER: mock
+      ROUTING_PROVIDER: mock
+      GEOCODE_PROVIDER: mock
+      DEV_API_KEY: meg_local_devkey00000000000000000001
+      DEV_API_KEY_B: meg_local_tenantb00000000000000000002
+      RATE_LIMIT_PER_MINUTE: "100000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: megmis
+      POSTGRES_PASSWORD: megmis
+      POSTGRES_DB: megmis
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U megmis -d megmis"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      target: prod
+    image: megmis-worker:local
+    entrypoint: ["/app/scripts/entrypoint.sh"]
+    command: ["python", "-m", "megmis.worker"]
+    environment:
+      APP_ENV: local
+      USE_PERSISTENCE: "true"
+      DATABASE_URL: postgresql+psycopg://megmis:megmis@postgres:5432/megmis
+      DATABASE_APP_URL: postgresql+psycopg://megmis_app:megmis_app@postgres:5432/megmis
+      USE_APP_ROLE: "true"
+      REDIS_URL: redis://redis:6379/0
+      WORKER_INTERVAL_SECONDS: "60"
+      WEATHER_PROVIDER: mock
+      ROUTING_PROVIDER: mock
+      OSM_EXTRACT_PATH: data/osm/zimbabwe-harare-bulawayo.osm
+      GRAPH_REFRESH_DIR: data/osm/.graph_refresh
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  console:
+    profiles: ["console"]
+    build:
+      context: .
+      target: prod
+    image: megmis-console:local
+    command: ["uvicorn", "megmis.console_app:app", "--host", "0.0.0.0", "--port", "8088"]
+    ports:
+      - "8088:8088"
+    environment:
+      CONSOLE_UPSTREAM: http://api:8000
+      CONSOLE_PORT: "8088"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+volumes:
+  pg_data:
+  minio_data:

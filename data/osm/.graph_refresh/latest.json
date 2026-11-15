@@ -1,0 +1,9 @@
+{
+  "status": "ready_for_swap",
+  "osm_extract": "data/osm/zimbabwe-harare-bulawayo.osm",
+  "sha256": "90ee186352415a19fd7ad6d35af74510ce6947223d71b6b2f757d1b72ef7e2e9",
+  "bytes": 650,
+  "requested_at": "2026-11-15T14:26:26.534078+00:00",
+  "note": "Ops: build new graph tile set, health-check, then atomic symlink swap",
+  "provider_probes": {}
+}

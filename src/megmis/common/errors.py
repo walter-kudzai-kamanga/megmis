@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+
+class AppError(Exception):
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        status_code: int = 400,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status_code = status_code
+        self.details = details or {}
+
+
+class ProviderError(AppError):
+    def __init__(self, message: str, *, retryable: bool = False, code: str = "PROVIDER_ERROR") -> None:
+        super().__init__(code, message, status_code=502, details={"retryable": retryable})
+        self.retryable = retryable
+
+
+async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", None) or request.headers.get(
+        "x-request-id", "unknown"
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "code": exc.code,
+            "message": exc.message,
+            "details": exc.details,
+            "request_id": request_id,
+        },
+    )

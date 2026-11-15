@@ -1,0 +1,188 @@
+openapi: 3.1.0
+info:
+  title: Mamiriro Intelligence API
+  version: 0.2.0
+  description: REST surface of MEGMIS (Gen 1 + Gen 2). Shared intelligence services behind REST, MCP, WS.
+servers:
+  - url: https://api.mamiriro.example/api/v1
+  - url: http://127.0.0.1:8000/api/v1
+security:
+  - ApiKeyAuth: []
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object }
+        request_id: { type: string }
+    Provenance:
+      type: object
+      required: [data_source, confidence, retrieved_at]
+      properties:
+        data_source: { type: string }
+        confidence: { type: string, enum: [high, medium, low, forecast-dependent] }
+        retrieved_at: { type: string, format: date-time }
+        official_vs_model: { type: string, enum: [official, model_derived, mixed] }
+    LatLon:
+      type: object
+      required: [lat, lon]
+      properties:
+        lat: { type: number }
+        lon: { type: number }
+    LocationInput:
+      type: object
+      properties:
+        lat: { type: number }
+        lon: { type: number }
+        name: { type: string }
+    RouteRequest:
+      type: object
+      required: [origin, destination, profile]
+      properties:
+        origin: { $ref: '#/components/schemas/LocationInput' }
+        destination: { $ref: '#/components/schemas/LocationInput' }
+        waypoints:
+          type: array
+          items: { $ref: '#/components/schemas/LocationInput' }
+        profile: { type: string, enum: [fastest, safest, cheapest, fuel] }
+        vehicle_class: { type: string, enum: [car, light_truck, hgv] }
+        departure_time: { type: string, format: date-time }
+    CreateApiKey:
+      type: object
+      properties:
+        label: { type: string }
+        scopes:
+          type: array
+          items: { type: string }
+        expires_in_days: { type: integer, nullable: true }
+    CreateWebhook:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, format: uri }
+        events:
+          type: array
+          items: { type: string }
+    JourneyRiskRequest:
+      type: object
+      required: [origin, destination]
+      properties:
+        origin: { $ref: '#/components/schemas/LocationInput' }
+        destination: { $ref: '#/components/schemas/LocationInput' }
+        profile: { type: string, default: safest }
+        activity: { type: string, default: road_trip }
+paths:
+  /weather/current:
+    get:
+      summary: Current weather for a location
+      parameters:
+        - { name: lat, in: query, schema: { type: number } }
+        - { name: lon, in: query, schema: { type: number } }
+        - { name: name, in: query, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /weather/forecast:
+    get: { summary: Forecast, responses: { '200': { description: OK } } }
+  /weather/alerts:
+    get: { summary: Active alerts, responses: { '200': { description: OK } } }
+  /weather/risk:
+    post: { summary: Activity-based weather risk, responses: { '200': { description: OK } } }
+  /geo/geocode:
+    get: { summary: Geocode, responses: { '200': { description: OK } } }
+  /geo/nearby:
+    get: { summary: Nearby places, responses: { '200': { description: OK } } }
+  /routes/optimize:
+    post:
+      summary: Optimised routes with explanations
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/RouteRequest' } } }
+      responses: { '200': { description: OK } }
+  /journeys:
+    post: { summary: Create monitored journey, responses: { '201': { description: Created } } }
+  /journeys/{id}:
+    get: { summary: Journey status, responses: { '200': { description: OK } } }
+  /roads/reports:
+    post: { summary: Submit road-condition report, responses: { '201': { description: Created } } }
+  /roads/incidents:
+    get: { summary: List incidents, responses: { '200': { description: OK } } }
+  /agents/sessions:
+    post: { summary: Start voice agent session (Gen 3), responses: { '201': { description: Created } } }
+  /agents/sessions/{session_id}/utterance:
+    post: { summary: Text utterance → tools → spoken reply, responses: { '200': { description: OK } } }
+  /agents/sessions/{session_id}/stt:
+    post: { summary: Upload audio for Whisper STT (+ optional agent turn), responses: { '200': { description: OK } } }
+  /agents/scenarios/mutare:
+    post: { summary: Mutare voice acceptance scenario, responses: { '200': { description: OK } } }
+  /agents/training/prompts:
+    get: { summary: Voice training prompts (en/sn/nd), responses: { '200': { description: OK } } }
+  /agents/training/score:
+    post: { summary: Score training utterance (WER + intent), responses: { '200': { description: OK } } }
+
+  # --- Gen 2 ---
+  /keys:
+    get: { summary: List API keys for tenant, responses: { '200': { description: OK } } }
+    post:
+      summary: Create API key (scopes, optional expiry)
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateApiKey' } } }
+      responses: { '201': { description: Created (includes raw_key once) } }
+  /keys/{id}/rotate:
+    post: { summary: Rotate API key, responses: { '200': { description: OK } } }
+  /keys/{id}/revoke:
+    post: { summary: Revoke API key, responses: { '200': { description: OK } } }
+
+  /webhooks:
+    get: { summary: List webhook subscriptions, responses: { '200': { description: OK } } }
+    post:
+      summary: Register webhook (returns secret once)
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateWebhook' } } }
+      responses: { '201': { description: Created } }
+  /webhooks/{id}:
+    delete: { summary: Delete webhook subscription, responses: { '200': { description: OK } } }
+
+  /risk/journey:
+    post:
+      summary: Persist composite journey risk assessment
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/JourneyRiskRequest' } } }
+      responses: { '200': { description: OK } }
+  /risk/{assessment_id}:
+    get: { summary: Fetch persisted journey risk assessment, responses: { '200': { description: OK } } }
+
+  /traffic/congestion:
+    get:
+      summary: Traffic sub-module congestion for a corridor
+      parameters:
+        - { name: corridor, in: query, required: true, schema: { type: string } }
+        - { name: at_time, in: query, schema: { type: string, format: date-time } }
+      responses: { '200': { description: OK } }
+  /traffic/estimate:
+    get:
+      summary: Traffic-adjusted duration estimate
+      parameters:
+        - { name: corridor, in: query, required: true, schema: { type: string } }
+        - { name: duration_s, in: query, required: true, schema: { type: number } }
+      responses: { '200': { description: OK } }
+  /traffic/corridors:
+    get: { summary: List known corridor profiles, responses: { '200': { description: OK } } }
+
+  /console/:
+    get: { summary: Console MVP HTML (keys, usage, health), responses: { '200': { description: HTML } } }
+  /console/health:
+    get: { summary: Console health checks, responses: { '200': { description: OK } } }
+  /console/usage:
+    get:
+      summary: Tenant usage summary
+      parameters:
+        - { name: hours, in: query, schema: { type: integer, default: 24 } }
+      responses: { '200': { description: OK } }
