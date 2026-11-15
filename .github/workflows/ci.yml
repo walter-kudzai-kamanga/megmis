@@ -2,9 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
+
   pull_request:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
+
   workflow_dispatch:
 
 permissions:
@@ -19,23 +25,44 @@ jobs:
       postgres:
         image: postgis/postgis:16-3.4
         env:
-          POSTGRES_DB: megmis
           POSTGRES_USER: megmis
           POSTGRES_PASSWORD: megmis
+          POSTGRES_DB: megmis
         ports:
           - 5433:5432
         options: >-
-          --health-cmd "pg_isready -U megmis -d megmis"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd="pg_isready -U megmis -d megmis"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
 
     env:
-      DATABASE_URL: postgresql+psycopg://megmis:megmis@localhost:5433/megmis
+      DATABASE_URL: postgresql+psycopg://megmis:megmis@127.0.0.1:5433/megmis
+      DATABASE_APP_URL: postgresql+psycopg://megmis_app:megmis_app@127.0.0.1:5433/megmis
+      REDIS_URL: redis://127.0.0.1:6379/0
+      USE_PERSISTENCE: "true"
 
     steps:
+      # --------------------------------------------------
+      # Checkout
+      # --------------------------------------------------
+
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # --------------------------------------------------
+      # Python environment
+      # --------------------------------------------------
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -43,29 +70,89 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install dependencies
+      # --------------------------------------------------
+      # Install dependencies
+      # --------------------------------------------------
+
+      - name: Upgrade pip
         run: |
           python -m pip install --upgrade pip
+
+      - name: Install project and development dependencies
+        run: |
           python -m pip install -e ".[dev]"
+
+      # --------------------------------------------------
+      # Verify installation
+      # --------------------------------------------------
 
       - name: Verify package installation
         run: |
           python -c "import megmis; print('megmis:', megmis.__version__)"
           python -c "import mcp; print('MCP SDK:', mcp.__file__)"
 
+      # --------------------------------------------------
+      # Verify PostgreSQL
+      # --------------------------------------------------
+
       - name: Check PostgreSQL connection
+        env:
+          PGPASSWORD: megmis
+        run: |
+          psql -h 127.0.0.1 -p 5433 -U megmis -d megmis \
+            -c "SELECT version();"
+
+      # --------------------------------------------------
+      # Create application database user
+      # --------------------------------------------------
+
+      - name: Create application database user
+        env:
+          PGPASSWORD: megmis
+        run: |
+          psql -h 127.0.0.1 -p 5433 -U megmis -d megmis \
+            -c "CREATE ROLE megmis_app WITH LOGIN PASSWORD 'megmis_app';"
+
+          psql -h 127.0.0.1 -p 5433 -U megmis -d megmis \
+            -c "GRANT CONNECT ON DATABASE megmis TO megmis_app;"
+
+          psql -h 127.0.0.1 -p 5433 -U megmis -d megmis \
+            -c "GRANT USAGE, CREATE ON SCHEMA public TO megmis_app;"
+
+          psql -h 127.0.0.1 -p 5433 -U megmis -d megmis \
+            -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO megmis_app;"
+
+          psql -h 127.0.0.1 -p 5433 -U megmis -d megmis \
+            -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO megmis_app;"
+
+      # --------------------------------------------------
+      # Verify Redis
+      # --------------------------------------------------
+
+      - name: Check Redis connection
         run: |
           python - <<'PY'
           import os
-          import psycopg
+          import redis
 
-          connection = psycopg.connect(os.environ["DATABASE_URL"])
-          print("PostgreSQL connection successful")
-          connection.close()
+          client = redis.Redis.from_url(os.environ["REDIS_URL"])
+          assert client.ping(), "Redis connection failed"
+
+          print("Redis connection successful")
           PY
 
-      - name: Ruff
-        run: python -m ruff check src tests scripts
+      # --------------------------------------------------
+      # Lint
+      # --------------------------------------------------
 
-      - name: Run Unit Tests
-        run: python -m pytest tests/ -v
+      - name: Run Ruff
+        run: |
+          python -m ruff check src tests scripts
+
+      # --------------------------------------------------
+      # Tests
+      # --------------------------------------------------
+
+      - name: Run unit tests
+        run: |
+          python -m pytest tests/ -v
