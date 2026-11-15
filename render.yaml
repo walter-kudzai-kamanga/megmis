@@ -1,0 +1,44 @@
+# Render Blueprint — fastest path to HTTPS Streamable HTTP MCP.
+# Dashboard: https://dashboard.render.com → New → Blueprint → this repo
+#
+# After deploy, set PUBLIC_BASE_URL to the service URL (e.g. https://megmis.onrender.com)
+# then Redeploy. Verify with: ./scripts/verify_remote_mcp.sh https://YOURHOST
+
+services:
+  - type: web
+    name: megmis-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: USE_PERSISTENCE
+        value: "false"
+      - key: USE_APP_ROLE
+        value: "false"
+      - key: AUTH_DISABLED
+        value: "false"
+      - key: WEATHER_PROVIDER
+        value: mock
+      - key: ROUTING_PROVIDER
+        value: mock
+      - key: GEOCODE_PROVIDER
+        value: mock
+      - key: SPEECH_PROVIDER
+        value: mock
+      - key: STRUCTURED_LOGS
+        value: "true"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "60"
+      # Set after first deploy to your public URL (required for MCP Host allowlist)
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: DEV_API_KEY
+        generateValue: true
+      - key: MCP_ALLOWED_HOSTS
+        value: "127.0.0.1:*,localhost:*"
+      - key: MCP_ALLOWED_ORIGINS
+        value: "http://127.0.0.1:*,http://localhost:*"

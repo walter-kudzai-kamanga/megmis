@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     use_app_role: bool = True
 
     mcp_transport: str = "http"
+    # Public HTTPS origin for hosted MCP (e.g. https://megmis.onrender.com).
+    # When set, hostname is merged into MCP DNS-rebinding allowlists automatically.
+    public_base_url: str = ""
     # Comma-separated Host allowlist for Streamable HTTP DNS-rebinding protection.
     # Use host:* for any port. Include public hostname(s) when deploying behind TLS.
     mcp_allowed_hosts: str = (
@@ -86,6 +89,45 @@ class Settings(BaseSettings):
     @property
     def effective_use_app_role(self) -> bool:
         return bool(self.use_app_role and self.database_app_url and self.use_persistence)
+
+    @property
+    def public_host(self) -> str:
+        """Hostname from PUBLIC_BASE_URL (no port/scheme)."""
+        from urllib.parse import urlparse
+
+        raw = (self.public_base_url or "").strip()
+        if not raw:
+            return ""
+        if "://" not in raw:
+            raw = f"https://{raw}"
+        host = urlparse(raw).hostname or ""
+        return host.strip().lower()
+
+    def effective_mcp_allowed_hosts(self) -> list[str]:
+        hosts = [h.strip() for h in self.mcp_allowed_hosts.split(",") if h.strip()]
+        ph = self.public_host
+        if ph:
+            for candidate in (ph, f"{ph}:*", f"{ph}:443", f"{ph}:80"):
+                if candidate not in hosts:
+                    hosts.append(candidate)
+        return hosts
+
+    def effective_mcp_allowed_origins(self) -> list[str]:
+        origins = [o.strip() for o in self.mcp_allowed_origins.split(",") if o.strip()]
+        base = (self.public_base_url or "").strip().rstrip("/")
+        if base:
+            if "://" not in base:
+                base = f"https://{base}"
+            for candidate in (base, f"{base}:*"):
+                if candidate not in origins:
+                    origins.append(candidate)
+            # also allow bare https origin without trailing path quirks
+            ph = self.public_host
+            if ph:
+                for candidate in (f"https://{ph}", f"https://{ph}:*"):
+                    if candidate not in origins:
+                        origins.append(candidate)
+        return origins
 
 
 @lru_cache

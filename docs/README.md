@@ -68,6 +68,7 @@ Structured engineering docs for the **Mamiriro Environmental, Geospatial & Mobil
 | [operations-runbook.md](operations/operations-runbook.md) | Backups, failover, incidents, capacity, on-call |
 | [gen4-commercial.md](operations/gen4-commercial.md) | Packs, GPS calibration, object retention, Open-Meteo licence gate |
 | [mcp-publish-and-discover.md](operations/mcp-publish-and-discover.md) | **Final gate:** PyPI, deploy, official registry, directories, GEO, CI republish |
+| [deploy-remote-mcp.md](operations/deploy-remote-mcp.md) | Phase 3: Render / Fly / Caddy HTTPS `/mcp` + verify script |
 
 ## Quality
 

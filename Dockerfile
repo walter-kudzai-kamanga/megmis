@@ -13,4 +13,5 @@ RUN pip install --no-cache-dir . \
 FROM base AS prod
 USER megmis
 EXPOSE 8000
-CMD ["uvicorn", "megmis.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Render/Fly set PORT; local/compose default 8000
+CMD ["sh", "-c", "uvicorn megmis.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

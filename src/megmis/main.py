@@ -201,12 +201,10 @@ def _mcp_transport_security():
     from mcp.server.transport_security import TransportSecuritySettings
 
     settings = get_settings()
-    hosts = [h.strip() for h in settings.mcp_allowed_hosts.split(",") if h.strip()]
-    origins = [o.strip() for o in settings.mcp_allowed_origins.split(",") if o.strip()]
     return TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
-        allowed_hosts=hosts,
-        allowed_origins=origins,
+        allowed_hosts=settings.effective_mcp_allowed_hosts(),
+        allowed_origins=settings.effective_mcp_allowed_origins(),
     )
 
 

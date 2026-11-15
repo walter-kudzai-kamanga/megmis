@@ -242,6 +242,13 @@ def dump(envelope: Any) -> dict[str, Any]:
 
 def server_card() -> dict[str, Any]:
     """Discovery document for /.well-known and registry alignment."""
+    settings = get_settings()
+    base = (settings.public_base_url or "").strip().rstrip("/")
+    if base and "://" not in base:
+        base = f"https://{base}"
+    http_transport: dict[str, Any] = {"type": "streamable-http", "path": "/mcp/"}
+    if base:
+        http_transport["url"] = f"{base}/mcp/"
     return {
         "name": MCP_SERVER_NAME,
         "title": MCP_TITLE,
@@ -250,9 +257,10 @@ def server_card() -> dict[str, Any]:
             "Mamiriro Environmental, Geospatial & Mobility Intelligence — "
             "weather, geo, safe routing, road conditions, and journey risk for Zimbabwe and beyond."
         ),
+        "websiteUrl": base or "https://github.com/walter-kudzai-kamanga/megmis",
         "transports": [
             {"type": "stdio", "command": "megmis-mcp"},
-            {"type": "streamable-http", "path": "/mcp/"},
+            http_transport,
         ],
         "auth": {
             "type": "api_key",

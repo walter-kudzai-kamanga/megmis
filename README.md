@@ -347,9 +347,19 @@ Playbook: [`docs/operations/mcp-publish-and-discover.md`](docs/operations/mcp-pu
 |---|---|
 | 0 Pre-flight | Done |
 | 2 PyPI package + Trusted Publishing workflow | Done (upload on first `v*` tag after PyPI pending publisher) |
-| 3 Deploy HTTPS `/mcp` | Next |
+| 3 Deploy HTTPS `/mcp` | Artifacts ready — [deploy-remote-mcp.md](docs/operations/deploy-remote-mcp.md) (you run Render/Fly/VPS) |
 | 4 Official MCP Registry (`server.json`) | Manifest ready; publish after PyPI |
 | 6+ Directories / GEO | After registry |
+
+### Hosted MCP (Phase 3)
+
+```bash
+# fastest: Render Blueprint (render.yaml) or: fly deploy
+# then:
+./scripts/verify_remote_mcp.sh https://YOURHOST
+```
+
+Set `PUBLIC_BASE_URL=https://YOURHOST` so MCP Host allowlisting and `/.well-known/mcp.json` include the public URL.
 
 ```bash
 # after PyPI Trusted Publisher is linked:

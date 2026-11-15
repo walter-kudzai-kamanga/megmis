@@ -1,0 +1,100 @@
+# Production-ish stack with automatic HTTPS (Caddy).
+# Usage:
+#   cp .env.example .env.prod
+#   # edit: PUBLIC_HOST, PUBLIC_BASE_URL=https://$PUBLIC_HOST, DEV_API_KEY, providers…
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+# Verify:
+#   ./scripts/verify_remote_mcp.sh https://$PUBLIC_HOST
+
+services:
+  api:
+    build:
+      context: .
+      target: prod
+    image: megmis-api:prod
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      APP_ENV: production
+      USE_PERSISTENCE: ${USE_PERSISTENCE:-true}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    expose:
+      - "8000"
+
+  worker:
+    build:
+      context: .
+      target: prod
+    image: megmis-worker:prod
+    restart: unless-stopped
+    env_file: .env.prod
+    command: ["python", "-m", "megmis.worker"]
+    environment:
+      APP_ENV: production
+      USE_PERSISTENCE: ${USE_PERSISTENCE:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?set PUBLIC_HOST e.g. mcp.example.com}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+
+  postgres:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: megmis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-megmis}
+      POSTGRES_DB: megmis
+    volumes:
+      - pg_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U megmis -d megmis"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pg_data_prod:
+  caddy_data:
+  caddy_config:

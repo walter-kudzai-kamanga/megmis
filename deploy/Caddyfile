@@ -1,0 +1,11 @@
+# Reverse proxy + automatic TLS for docker-compose.prod.yml
+# Set PUBLIC_HOST in .env.prod (e.g. mcp.example.com) and point DNS A/AAAA here.
+
+{$PUBLIC_HOST:localhost} {
+	encode gzip
+	reverse_proxy api:8000
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+	}
+}
