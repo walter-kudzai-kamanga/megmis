@@ -1,81 +1,135 @@
-# Publish megmis to PyPI on version tags via Trusted Publishing (OIDC).
-# One-time setup on https://pypi.org :
-#   1. Create project "megmis" (or pending publisher) for this repo
-#   2. Trusted publisher → GitHub
-#        Owner: walter-kudzai-kamanga
-#        Repo:  megmis
-#        Workflow: release.yml
-#        Environment: pypi
-#   3. Create GitHub Environment named "pypi" (optional protection rules)
-# Then: git tag v0.1.0 && git push origin v0.1.0
+# Publish megmis to PyPI using GitHub Actions Trusted Publishing.
 
 name: release
 
 on:
   push:
-    tags: ["v*"]
+    tags:
+      - "v*"
+
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+
   build:
+    name: Build and validate package
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
+
       - name: Install build tools
-        run: python -m pip install -U pip build twine
-      - name: Install project and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      - name: Install project
         run: python -m pip install .
-      - name: Sync identity (version / mcp-name)
+
+      - name: Validate package identity
+        env:
+          PYTHONPATH: src
         run: |
           python - <<'PY'
-          import json, re
+          import json
+          import os
+          import re
           from pathlib import Path
+
           from megmis import __version__
           from megmis.mcp.runtime import MCP_SERVER_NAME
 
-          assert __version__
+          assert __version__, "Package version is missing"
+
+          # Validate pyproject.toml
           pyproject = Path("pyproject.toml").read_text()
-          m = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.M)
-          assert m and m.group(1) == __version__, (m and m.group(1), __version__)
-          manifest = json.loads(Path("server.json").read_text())
+          match = re.search(
+              r'^version\s*=\s*"([^"]+)"',
+              pyproject,
+              re.M
+          )
+
+          assert match, "Version missing from pyproject.toml"
+          assert match.group(1) == __version__
+
+          # Validate server manifest
+          manifest = json.loads(
+              Path("server.json").read_text()
+          )
+
           assert manifest["version"] == __version__
           assert manifest["packages"][0]["version"] == __version__
           assert manifest["name"] == MCP_SERVER_NAME
+
+          # Validate README MCP identity
           readme = Path("README.md").read_text()
-          assert f"mcp-name: {MCP_SERVER_NAME}" in readme
-          print("identity OK", MCP_SERVER_NAME, __version__)
+
+          assert (
+              f"mcp-name: {MCP_SERVER_NAME}" in readme
+          ), "MCP server name mismatch in README"
+
+          # Validate Git tag version
+          tag = os.environ.get("GITHUB_REF_NAME", "")
+
+          if tag.startswith("v"):
+              tag_version = tag[1:]
+
+              assert tag_version == __version__, (
+                  f"Git tag {tag_version} does not match "
+                  f"package version {__version__}"
+              )
+
+          print(
+              f"Identity validated: {MCP_SERVER_NAME} "
+              f"v{__version__}"
+          )
           PY
-        env:
-          PYTHONPATH: src
-      - name: Build sdist + wheel
+
+      - name: Build distributions
         run: python -m build
-      - name: Twine check
+
+      - name: Validate distributions
         run: twine check dist/*
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    environment:
+      name: pypi
+      url: https://pypi.org/p/megmis
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
         with:
           name: python-package-distributions
           path: dist/
 
-  publish:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    environment:
-      name: pypi
-      url: https://pypi.org/p/megmis
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
