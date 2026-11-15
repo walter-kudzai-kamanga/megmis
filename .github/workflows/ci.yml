@@ -19,6 +19,7 @@ jobs:
           python -m pip install -U pip
           python -m pip install -e . 
           python -c "import mcp; print(mcp.__file__)"
+          python -m pip install .
       - name: Ruff
         run: ruff check src tests scripts
       - name: Validate MCP server.json + registry identity
