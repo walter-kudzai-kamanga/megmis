@@ -17,7 +17,7 @@ jobs:
       - name: Install
         run: |
           python -m pip install -U pip
-          pip install -e ".[dev]"
+          python -m pip install -e . build twine
       - name: Ruff
         run: ruff check src tests scripts
       - name: Validate MCP server.json + registry identity
