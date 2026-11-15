@@ -30,6 +30,8 @@ jobs:
           cache: pip
       - name: Install build tools
         run: python -m pip install -U pip build twine
+      - name: Install project and dependencies
+        run: python -m pip install .
       - name: Sync identity (version / mcp-name)
         run: |
           python - <<'PY'
