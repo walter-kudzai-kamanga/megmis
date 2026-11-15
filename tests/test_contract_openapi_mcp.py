@@ -49,8 +49,14 @@ def test_mcp_tools_registered():
         "geocode",
         "assess_journey_risk",
         "get_traffic_congestion",
+        "create_journey",
     }
     assert required.issubset(names)
+
+    tools = {t.name: t for t in mcp._tool_manager.list_tools()}
+    assert tools["get_current_weather"].annotations is not None
+    assert tools["get_current_weather"].annotations.read_only_hint is True
+    assert tools["report_road_condition"].annotations.read_only_hint is False
 
 
 def test_provenance_on_weather(client, headers_a):

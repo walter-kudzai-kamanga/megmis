@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="/voice/lab.css?v=5" />
+  <link rel="stylesheet" href="/voice/lab.css?v=6" />
 </head>
 <body>
   <div class="app">
@@ -17,8 +17,8 @@
       <div>
         <h1 class="brand">MAMIRI<span>RO</span></h1>
         <p class="tagline">
-          Voice + API lab — exercise every REST route and MCP tool this server exposes,
-          with interactive routing, tool traces, and spoken replies.
+          Voice + API lab — Whisper STT into MCP tools, flexible routing for any place,
+          and a live explorer for every REST / MCP surface.
         </p>
       </div>
       <div class="hero-side">
@@ -33,7 +33,6 @@
         </div>
         <div class="ctrl-row">
           <button type="button" id="btn-session">Open session</button>
-          <button type="button" id="btn-mutare" class="ghost">Run Mutare scenario</button>
         </div>
       </div>
     </header>
@@ -42,26 +41,33 @@
       <div class="stack">
         <section class="panel">
           <h2>Live channel</h2>
-          <p class="sub">Hold the mic to capture audio for Whisper, or type an utterance. WebSocket keeps the agent turn stream hot.</p>
+          <p class="sub">Hold the mic for Whisper, or type any corridor (e.g. Bindura to Kariba). Agent + map update live.</p>
           <div class="mic-stage">
             <button type="button" class="mic-btn" id="mic">Mic</button>
             <canvas id="wave" aria-label="Waveform"></canvas>
           </div>
           <div class="ctrl-row" style="margin-top:0.9rem">
-            <textarea id="utterance" rows="2" placeholder="Ask: route from Bulawayo to Gweru…" style="flex:1;min-width:220px;border-radius:12px"></textarea>
+            <textarea id="utterance" rows="2" placeholder="Ask: route from Bindura to Kariba…" style="flex:1;min-width:220px;border-radius:12px"></textarea>
             <button type="button" id="btn-send">Send</button>
           </div>
           <div id="transcript" class="transcript" aria-live="polite" style="margin-top:0.9rem"></div>
         </section>
 
         <section class="panel">
-          <h2>Mutare acceptance path</h2>
-          <p class="sub">Agent queries tools → speaks ranked route → starts journey monitoring.</p>
-          <ol class="scenario-steps" id="scenario-steps">
-            <li>Plan safest Harare → Mutare route (optimize_route + risk)</li>
-            <li>Corridor weather for Mutare</li>
-            <li>Start journey monitoring and confirm spoken alert</li>
-          </ol>
+          <h2>Whisper → MCP</h2>
+          <p class="sub">
+            Record speech, transcribe with Whisper, then call MCP tools
+            (<code>optimize_route</code>, weather, risk) with the transcript.
+          </p>
+          <div class="ctrl-row">
+            <button type="button" id="btn-whisper-mcp">Mic → Whisper → MCP route</button>
+            <button type="button" id="btn-whisper-only" class="ghost">Whisper STT only</button>
+          </div>
+          <div class="whisper-meta">
+            <span class="chip" id="chip-speech">STT: …</span>
+            <span class="chip" id="chip-mcp-whisper">MCP idle</span>
+          </div>
+          <pre id="whisper-mcp-out" class="api-response whisper-out">Hold the button and speak a route request…</pre>
         </section>
       </div>
 
@@ -76,13 +82,12 @@
 
         <section class="panel">
           <h2>Live results</h2>
-          <p class="sub">Dijkstra-ranked corridors on the map — safest / fastest / fuel profiles from the Zimbabwe highway graph.</p>
+          <p class="sub">Dijkstra / OSRM corridors on the map for whatever places you enter.</p>
           <div id="route-map" class="route-map" aria-label="Route map"></div>
           <div id="results" class="results">
-            <div class="result-empty">Try: “route from Bulawayo to Gweru” or “weather in Victoria Falls”.</div>
+            <div class="result-empty">Try: “route from Bindura to Kariba” or “weather in Victoria Falls”.</div>
           </div>
         </section>
-
       </div>
     </div>
 
@@ -136,12 +141,11 @@
       <span class="chip" id="chip-session">no session</span>
       <span class="chip" id="chip-ws">ws idle</span>
       <span class="chip" id="chip-journey">journey idle</span>
-      <span class="chip" id="chip-scenario">scenario idle</span>
-      <span class="chip">STT: Whisper · TTS: edge / mock</span>
+      <span class="chip" id="chip-stt-provider">speech …</span>
     </div>
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="/voice/lab.js?v=5"></script>
-  <script src="/voice/explorer.js?v=5"></script>
+  <script src="/voice/lab.js?v=6"></script>
+  <script src="/voice/explorer.js?v=6"></script>
 </body>
 </html>

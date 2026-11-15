@@ -167,11 +167,31 @@ def job_graph_refresh() -> dict:
     return result
 
 
+def job_provider_health() -> dict:
+    from megmis.providers.orchestrator import get_orchestrator
+
+    results = get_orchestrator().run_health_probes()
+    _record_job("provider_health", {}, results)
+    log.info("provider_health %s", results)
+    return results
+
+
+def job_object_retention() -> dict:
+    from megmis.storage.object_store import get_object_store
+
+    result = get_object_store().purge_expired()
+    _record_job("object_retention", {}, result)
+    log.info("object_retention %s", result)
+    return result
+
+
 def run_once() -> None:
     job_validate_reports()
     job_weather_alerts_fanout()
     job_webhook_drain()
     job_graph_refresh()
+    job_provider_health()
+    job_object_retention()
 
 
 def main() -> None:

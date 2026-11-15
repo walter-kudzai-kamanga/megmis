@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+from megmis.common.pii import redact_transcript
 from megmis.common.schemas import LocationInput
 from megmis.common.zimbabwe import (
     KNOWN_PLACES,
@@ -83,19 +84,40 @@ def extract_places(text: str) -> list[str]:
     return out
 
 
+def _free_place_label(raw: str) -> str:
+    """Keep user-typed place text (title-cased); Nominatim resolves at route time."""
+    t = re.sub(r",?\s*zimbabwe\s*$", "", (raw or "").strip(), flags=re.I)
+    t = re.sub(r"\s+", " ", t).strip(" .,!")
+    if not t:
+        return raw.strip()
+    # Prefer gazetteer canonical name when we know it
+    known = _canon_place(t)
+    if known:
+        return known
+    return t.title()
+
+
 def extract_raw_od_phrases(text: str) -> tuple[str | None, str | None]:
     """Pull raw from/to phrases even when places are unknown to the gazetteer."""
     t = text.strip()
+    # strip leading intent words
+    t2 = re.sub(
+        r"^(?:please\s+)?(?:plan\s+)?(?:the\s+)?(?:safest|fastest|cheapest|fuel)?\s*"
+        r"(?:route|directions|drive|navigate)?\s*",
+        "",
+        t,
+        flags=re.I,
+    ).strip()
     m = re.search(
         r"\bfrom\s+(.+?)\s+to\s+(.+?)(?:\?|$|\.|!)",
-        t,
+        t2,
         flags=re.I,
     )
     if m:
         return m.group(1).strip(" .,!"), m.group(2).strip(" .,!")
     m = re.search(
         r"\bfrom\s+([a-zA-Z][a-zA-Z0-9\s,'-]{1,50}?)\s+to\s+([a-zA-Z][a-zA-Z0-9\s,'-]{1,60})",
-        t,
+        t2,
         flags=re.I,
     )
     if m:
@@ -107,6 +129,24 @@ def extract_raw_od_phrases(text: str) -> tuple[str | None, str | None]:
     )
     if m:
         return m.group(1).strip(" .,!"), m.group(2).strip(" .,!")
+    # bare "Harare to Nyamaropa" / "bindura to kariba"
+    m = re.search(
+        r"^\s*([a-zA-Z][a-zA-Z0-9\s,'-]{1,50}?)\s+to\s+([a-zA-Z][a-zA-Z0-9\s,'-]{1,60})\s*$",
+        t2,
+        flags=re.I,
+    )
+    if m:
+        return m.group(1).strip(" .,!"), m.group(2).strip(" .,!")
+    m = re.search(
+        r"\b([a-zA-Z][a-zA-Z0-9\s,'-]{1,40}?)\s+to\s+([a-zA-Z][a-zA-Z0-9\s,'-]{1,50})\b",
+        t2,
+        flags=re.I,
+    )
+    if m:
+        left, right = m.group(1).strip(" .,!"), m.group(2).strip(" .,!")
+        # ignore "how to …" style
+        if left.lower() not in {"how", "want", "need", "going", "drive"}:
+            return left, right
     return None, None
 
 
@@ -116,7 +156,8 @@ def extract_od(
     """
     Resolve origin/destination from free text.
     Returns (origin, destination, unresolved_phrases).
-    Never invents a second place when only one was understood.
+    Unknown place names are kept as free-text labels for Nominatim / routing —
+    never invent a second place when only one was understood.
     """
     memory = memory or {}
     low = text.strip().lower()
@@ -124,17 +165,12 @@ def extract_od(
 
     raw_o, raw_d = extract_raw_od_phrases(text)
     if raw_o or raw_d:
-        o = _canon_place(raw_o) if raw_o else None
-        d = _canon_place(raw_d) if raw_d else None
-        if raw_o and not o:
-            unresolved.append(raw_o)
-        if raw_d and not d:
-            unresolved.append(raw_d)
+        o = _free_place_label(raw_o) if raw_o else None
+        d = _free_place_label(raw_d) if raw_d else None
         if o and d and o.lower() != d.lower():
             return o, d, unresolved
         if o and d and o.lower() == d.lower():
-            # same resolved name — treat dest as unresolved if raw differed
-            if raw_d and raw_d.lower() != raw_o.lower():
+            if raw_d and raw_d.lower() != (raw_o or "").lower():
                 unresolved.append(raw_d)
                 return o, None, unresolved
         if o and not d:
@@ -148,9 +184,8 @@ def extract_od(
     # Shona-ish: kuenda kuX
     m = re.search(r"\bkuenda\s+ku([a-zA-Z]+)\b", low)
     if m:
-        d = _canon_place(m.group(1))
-        if not d:
-            unresolved.append(m.group(1))
+        raw = m.group(1)
+        d = _free_place_label(raw)
         o = memory.get("origin") or "Harare"
         if d and str(o).lower() != d.lower():
             return str(o), d, unresolved
@@ -158,15 +193,12 @@ def extract_od(
     # Ndebele-ish: ukuya eX
     m = re.search(r"\bukuya\s+e([a-zA-Z]+)\b", low)
     if m:
-        d = _canon_place(m.group(1))
-        if not d:
-            unresolved.append(m.group(1))
+        d = _free_place_label(m.group(1))
         o = memory.get("origin") or "Harare"
         if d and str(o).lower() != d.lower():
             return str(o), d, unresolved
 
     places = extract_places(text)
-    # Drop duplicate same-name collapses
     places = list(dict.fromkeys(places))
     if len(places) >= 2:
         return places[0], places[1], unresolved
@@ -177,10 +209,7 @@ def extract_od(
         dest = memory.get("destination")
         if dest and places[0].lower() != str(dest).lower():
             return places[0], str(dest), unresolved
-        # Only one known place in the utterance — do not invent O→O
-        if raw_d and not _canon_place(raw_d):
-            unresolved.append(raw_d)
-        return None, None, unresolved or ([places[0]] if not raw_d else unresolved)
+        return None, None, unresolved
 
     if memory.get("origin") and memory.get("destination"):
         mo, md = str(memory["origin"]), str(memory["destination"])
@@ -350,6 +379,22 @@ class VoiceAgentService:
         name = f"{kind}_{uuid4().hex[:10]}.{ext}"
         path = base / name
         path.write_bytes(data)
+        obj_uri = None
+        try:
+            from megmis.storage.object_store import get_object_store
+
+            stored = get_object_store().put(
+                data,
+                prefix=f"audio/{tenant_id}/{session_id}",
+                content_type="audio/mpeg" if ext == "mp3" else f"audio/{ext}",
+                retention_days=get_settings().audio_retention_days,
+            )
+            obj_uri = stored.uri
+        except Exception:
+            obj_uri = None
+        artefact_meta = dict(meta or {})
+        if obj_uri:
+            artefact_meta["object_uri"] = obj_uri
         with session_scope(tenant_id=tenant_id) as session:
             session.add(
                 AudioArtefact(
@@ -358,7 +403,7 @@ class VoiceAgentService:
                     kind=kind,
                     path=str(path),
                     lang=lang,
-                    meta=meta or {},
+                    meta=artefact_meta,
                 )
             )
         return str(path)
@@ -671,20 +716,32 @@ class VoiceAgentService:
                 "unresolved": unresolved,
             }
         elif intent in {"route.plan", "route.speak"}:
-            tr = self._tool_route(tenant_id, lang, str(origin), str(destination), profile)
-            tool_trace.append(tr)
-            spoken_parts.extend(tr["spoken_parts"])
-            results["route"] = tr.get("result_summary")
-            results["ranked_routes"] = tr.get("ranked_routes")
-            results["map"] = tr.get("map")
-            risk = self._tool_risk(tenant_id, lang, str(origin), str(destination), profile)
-            tool_trace.append(risk)
-            spoken_parts.extend(risk["spoken_parts"])
-            results["risk"] = risk.get("result_summary")
-            wx = self._tool_weather(lang, str(weather_place))
-            tool_trace.append(wx)
-            spoken_parts.extend(wx["spoken_parts"])
-            results["weather"] = wx.get("result_summary")
+            try:
+                tr = self._tool_route(tenant_id, lang, str(origin), str(destination), profile)
+                tool_trace.append(tr)
+                spoken_parts.extend(tr["spoken_parts"])
+                results["route"] = tr.get("result_summary")
+                results["ranked_routes"] = tr.get("ranked_routes")
+                results["map"] = tr.get("map")
+                risk = self._tool_risk(tenant_id, lang, str(origin), str(destination), profile)
+                tool_trace.append(risk)
+                spoken_parts.extend(risk["spoken_parts"])
+                results["risk"] = risk.get("result_summary")
+                wx = self._tool_weather(lang, str(weather_place))
+                tool_trace.append(wx)
+                spoken_parts.extend(wx["spoken_parts"])
+                results["weather"] = wx.get("result_summary")
+            except Exception as exc:  # noqa: BLE001
+                msg = (
+                    f"Could not resolve a route from {origin} to {destination}: {exc}. "
+                    "Try a clearer place name (e.g. town + district)."
+                )
+                spoken_parts.append(msg)
+                results["help"] = {
+                    "error": str(exc),
+                    "origin": origin,
+                    "destination": destination,
+                }
         elif intent == "weather.current":
             wx = self._tool_weather(lang, str(weather_place))
             tool_trace.append(wx)
@@ -731,9 +788,11 @@ class VoiceAgentService:
                     "lang": lang,
                 }
 
+        settings = get_settings()
+        # Persist only redacted user text (PII rules) — spoken reply already templated
         turn = {
             "at": datetime.now(UTC).isoformat(),
-            "user": text,
+            "user": redact_transcript(text, salt=settings.pii_salt),
             "intent": intent,
             "reply": reply,
             "lang": lang,

@@ -14,15 +14,17 @@ Do not start publishing while mocks-only prototypes are still the only story for
 
 ## Phase 0 — Pre-flight (must pass)
 
-- [ ] `pytest -q` green; MCP contract tests green
-- [ ] `ruff` / type-check clean (per [cicd-pipeline.md](cicd-pipeline.md))
-- [ ] README has copy-paste configs for **stdio** and **HTTP** (Cursor, Claude Desktop, VS Code, Windsurf)
-- [ ] Tools have clear names, descriptions, and read vs write annotations
-- [ ] Auth story documented (`X-API-Key` / future OAuth); no secrets in repo
-- [ ] Version bumped in `pyproject.toml` (semver)
-- [ ] Public GitHub (or Cursor Origin) repo exists and is the canonical source
+- [x] `pytest -q` green; MCP contract tests green *(2026-11-15: 54 non-integration + MCP contract/functional green)*
+- [x] `ruff` clean (`src` / `tests` / `scripts`; UP042/UP046 ignored as unsafe schema refactors)
+- [x] README has copy-paste configs for **stdio** and **HTTP** (Cursor, Claude Desktop, VS Code, Windsurf)
+- [x] Tools have clear names, descriptions, and read vs write annotations (`ToolAnnotations` `_READ` / `_WRITE`)
+- [x] Auth story documented (`X-API-Key` / future OAuth); `.env` gitignored; no live secrets committed
+- [x] Version set in `pyproject.toml` (`0.1.0` — first public ship; bump on each release)
+- [x] Canonical remote: `https://github.com/walter-kudzai-kamanga/megmis.git` (confirm **public** before registry submit)
+- [x] `server.json` (PyPI stdio) + README `<!-- mcp-name: io.github.walter-kudzai-kamanga/megmis -->` + `/.well-known/mcp.json`
 
-**Exit:** “Ready to publish” — not “still building features.”
+**Exit:** “Ready to publish” — not “still building features.” ✅ Phase 0 complete — proceed to Phase 1/2 (package + deploy).  
+**Still before public reuse:** choose an open-source `LICENSE` (current file is all-rights-reserved), commit/push Gen 4 WIP to `origin/main`.
 
 ---
 

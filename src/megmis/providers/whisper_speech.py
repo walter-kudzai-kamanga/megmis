@@ -56,18 +56,67 @@ class WhisperSpeechProvider:
         )
         return self._model
 
+    def _to_float32_mono_16k(self, audio_bytes: bytes, mime: str) -> Any:
+        """Decode browser/web audio to float32 mono @16kHz without broken PyAV paths."""
+        import numpy as np
+
+        suffix = ".webm" if "webm" in mime else ".ogg" if "ogg" in mime else ".wav"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(audio_bytes)
+            src = Path(tmp.name)
+        wav = src.with_suffix(".16k.wav")
+        try:
+            import subprocess
+
+            # ffmpeg handles wav/webm/ogg reliably; avoids PyAV metadata_errors crash
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(src),
+                "-ac",
+                "1",
+                "-ar",
+                "16000",
+                "-f",
+                "wav",
+                str(wav),
+            ]
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if proc.returncode != 0 or not wav.exists():
+                raise ProviderError(
+                    f"ffmpeg decode failed: {(proc.stderr or '')[-400:]}",
+                    retryable=False,
+                    code="STT_DECODE",
+                )
+            import soundfile as sf
+
+            data, sr = sf.read(str(wav), dtype="float32")
+            if getattr(data, "ndim", 1) > 1:
+                data = data.mean(axis=1)
+            if int(sr) != 16000:
+                # simple linear resample fallback
+                duration = len(data) / float(sr)
+                target = max(1, int(duration * 16000))
+                data = np.interp(
+                    np.linspace(0, len(data), target, endpoint=False),
+                    np.arange(len(data)),
+                    data,
+                ).astype("float32")
+            return np.asarray(data, dtype="float32")
+        finally:
+            src.unlink(missing_ok=True)
+            wav.unlink(missing_ok=True)
+
     def stt(self, audio_bytes: bytes, lang: str = "en", *, mime: str = "audio/wav") -> dict[str, Any]:
         if not audio_bytes:
             raise ProviderError("empty audio", retryable=False, code="EMPTY_AUDIO")
         model = self._load()
-        suffix = ".webm" if "webm" in mime else ".ogg" if "ogg" in mime else ".wav"
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            tmp.write(audio_bytes)
-            path = tmp.name
         try:
+            audio = self._to_float32_mono_16k(audio_bytes, mime)
             whisper_lang = _WHISPER_LANG.get(lang, "en")
             segments, info = model.transcribe(
-                path,
+                audio,
                 language=whisper_lang,
                 beam_size=3,
                 vad_filter=True,
@@ -87,8 +136,6 @@ class WhisperSpeechProvider:
             raise
         except Exception as exc:  # noqa: BLE001
             raise ProviderError(str(exc), retryable=True, code="STT_FAILED") from exc
-        finally:
-            Path(path).unlink(missing_ok=True)
 
     def tts(self, text: str, lang: str = "en", voice: str | None = None) -> dict[str, Any]:
         settings = get_settings()

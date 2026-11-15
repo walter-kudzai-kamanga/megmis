@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import time
+from datetime import UTC
 
 import pytest
 
@@ -78,12 +79,12 @@ def test_journey_risk_persisted(client, headers_a):
 
 
 def test_traffic_submodule_peak_logic():
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from megmis.engines.routing import traffic
 
-    off = traffic.get_congestion("A5 Harare-Bulawayo", datetime(2026, 11, 15, 12, tzinfo=timezone.utc))
-    peak = traffic.get_congestion("A5 Harare-Bulawayo", datetime(2026, 11, 15, 8, tzinfo=timezone.utc))
+    off = traffic.get_congestion("A5 Harare-Bulawayo", datetime(2026, 11, 15, 12, tzinfo=UTC))
+    peak = traffic.get_congestion("A5 Harare-Bulawayo", datetime(2026, 11, 15, 8, tzinfo=UTC))
     assert peak["congestion"] >= off["congestion"]
     assert "a5" in peak["matched_profile"]
     est = traffic.estimate_time_at(3600, "A1 Harare")

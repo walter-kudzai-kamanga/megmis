@@ -306,8 +306,7 @@
     });
     state.sessionId = res.data.session_id;
     setStatus("#chip-session", "session " + state.sessionId.slice(0, 8) + "...", true);
-    setStatus("#chip-scenario", "scenario idle", false);
-    logTurn("agent", res.data.greeting || "Session ready. Ask any Zimbabwe corridor.");
+    logTurn("agent", res.data.greeting || "Session ready. Ask any corridor.");
     connectWs();
     return state.sessionId;
   }
@@ -482,24 +481,154 @@
     if (body.data && body.data.agent) applyAgent(body.data.agent);
   }
 
-  async function runMutare() {
-    const list = $("#scenario-steps");
-    Array.prototype.forEach.call(list.children, (li) => li.classList.remove("done"));
-    setStatus("#chip-scenario", "running Mutare...", false);
-    const res = await api("/agents/scenarios/mutare?lang=" + state.lang, { method: "POST" });
-    state.sessionId = res.data.session.session_id;
-    connectWs();
-    const steps = res.data.steps || [];
-    steps.forEach((s, i) => {
-      if (list.children[i]) list.children[i].classList.add("done");
-      logTurn("user", s.user_text);
-      applyAgent(s);
+  function parseOdFromText(text) {
+    const t = String(text || "").trim();
+    let m = t.match(/\bfrom\s+(.+?)\s+to\s+(.+)$/i);
+    if (!m) m = t.match(/^\s*(.+?)\s+to\s+(.+)\s*$/i);
+    if (!m) return null;
+    return { origin: m[1].trim(), destination: m[2].trim() };
+  }
+
+  async function mcpTool(name, args) {
+    const res = await fetch("/mcp/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        "X-API-Key": state.apiKey,
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: Date.now(),
+        method: "tools/call",
+        params: { name: name, arguments: args || {} },
+      }),
     });
-    setStatus(
-      "#chip-scenario",
-      res.data.passed ? "Mutare scenario PASS" : "Mutare scenario incomplete",
-      !!res.data.passed
-    );
+    const data = await res.json();
+    if (data.error) throw new Error(JSON.stringify(data.error));
+    return data.result;
+  }
+
+  async function recordOnce() {
+    await ensureSession();
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : "audio/webm";
+    const rec = new MediaRecorder(stream, { mimeType: mime });
+    const chunks = [];
+    return new Promise((resolve, reject) => {
+      rec.ondataavailable = (e) => {
+        if (e.data.size) chunks.push(e.data);
+      };
+      rec.onerror = (e) => reject(e.error || new Error("recorder error"));
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        resolve(new Blob(chunks, { type: mime }));
+      };
+      rec.start();
+      setStatus("#chip-mcp-whisper", "listening 4s…", false);
+      setTimeout(() => {
+        try {
+          rec.stop();
+        } catch (e) {
+          reject(e);
+        }
+      }, 4000);
+    });
+  }
+
+  async function sttBlob(blob, runAgent) {
+    await ensureSession();
+    const fd = new FormData();
+    fd.append("audio", blob, "utterance.webm");
+    fd.append("lang", state.lang);
+    fd.append("synthesize", "false");
+    fd.append("run_agent", runAgent ? "true" : "false");
+    const res = await fetch("/api/v1/agents/sessions/" + state.sessionId + "/stt", {
+      method: "POST",
+      headers: { "X-API-Key": state.apiKey },
+      body: fd,
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function whisperOnly() {
+    const out = $("#whisper-mcp-out");
+    out.textContent = "Recording… speak now";
+    const blob = await recordOnce();
+    out.textContent = "Transcribing with Whisper…";
+    const body = await sttBlob(blob, false);
+    const stt = (body.data && body.data.stt) || {};
+    setStatus("#chip-speech", "STT: " + (stt.provider || "?") + " · " + (stt.model || ""), true);
+    setStatus("#chip-stt-provider", "speech " + (stt.provider || "?"), true);
+    setStatus("#chip-mcp-whisper", "STT done", true);
+    out.textContent = JSON.stringify({ stt: stt }, null, 2);
+    if (stt.text) {
+      $("#utterance").value = stt.text;
+      logTurn("user", stt.text, "whisper-only " + (stt.provider || ""));
+    }
+  }
+
+  async function whisperToMcp() {
+    const out = $("#whisper-mcp-out");
+    out.textContent = "Recording… speak a route (e.g. Harare to Kariba)";
+    const blob = await recordOnce();
+    out.textContent = "Whisper STT…";
+    setStatus("#chip-mcp-whisper", "whisper…", false);
+    const body = await sttBlob(blob, false);
+    const stt = (body.data && body.data.stt) || {};
+    setStatus("#chip-speech", "STT: " + (stt.provider || "?") + " · " + (stt.model || ""), !!stt.provider);
+    setStatus("#chip-stt-provider", "speech " + (stt.provider || "?"), true);
+    const text = stt.text || "";
+    if (!text) {
+      out.textContent = JSON.stringify({ error: "empty transcript", stt: stt }, null, 2);
+      setStatus("#chip-mcp-whisper", "empty STT", false);
+      return;
+    }
+    logTurn("user", text, "whisper→mcp " + (stt.provider || ""));
+    $("#utterance").value = text;
+    const od = parseOdFromText(text);
+    const trace = { transcript: text, stt: stt, mcp: [] };
+    setStatus("#chip-mcp-whisper", "calling MCP…", false);
+
+    if (od) {
+      const route = await mcpTool("optimize_route", {
+        origin: { name: od.origin },
+        destination: { name: od.destination },
+        profile: /fast/i.test(text) ? "fastest" : "safest",
+      });
+      trace.mcp.push({ tool: "optimize_route", result: route });
+      const risk = await mcpTool("assess_journey_risk", {
+        origin: { name: od.origin },
+        destination: { name: od.destination },
+        profile: "safest",
+      });
+      trace.mcp.push({ tool: "assess_journey_risk", result: risk });
+      const wx = await mcpTool("get_current_weather", {
+        location: { name: od.destination },
+      });
+      trace.mcp.push({ tool: "get_current_weather", result: wx });
+      // Also run through voice agent so map/results update
+      const agent = await api("/agents/sessions/" + state.sessionId + "/utterance", {
+        method: "POST",
+        json: { text: text, lang: state.lang, synthesize: true },
+      });
+      applyAgent(agent.data);
+    } else {
+      const geo = await mcpTool("geocode", { address: text });
+      trace.mcp.push({ tool: "geocode", result: geo });
+      const agent = await api("/agents/sessions/" + state.sessionId + "/utterance", {
+        method: "POST",
+        json: { text: text, lang: state.lang, synthesize: true },
+      });
+      applyAgent(agent.data);
+    }
+
+    out.textContent = JSON.stringify(trace, null, 2);
+    setStatus("#chip-mcp-whisper", "MCP done (" + trace.mcp.length + " tools)", true);
+    showBanner("Whisper → MCP finished (" + (stt.provider || "stt") + ").", true);
   }
 
   function setLang(lang) {
@@ -537,10 +666,10 @@
       }
     });
     $("#mic").onclick = () => toggleMic().catch(flashError);
-    $("#btn-mutare").onclick = () =>
-      runMutare()
-        .then(() => showBanner("Mutare scenario finished.", true))
-        .catch(flashError);
+    const btnWm = $("#btn-whisper-mcp");
+    if (btnWm) btnWm.onclick = () => whisperToMcp().catch(flashError);
+    const btnWo = $("#btn-whisper-only");
+    if (btnWo) btnWo.onclick = () => whisperOnly().catch(flashError);
     document.querySelectorAll("[data-lang]").forEach((b) => {
       b.onclick = () => setLang(b.dataset.lang);
     });
@@ -564,12 +693,13 @@
           ok
             ? "API connected (" +
                 h.status +
-                "). Open a session, then ask any corridor — Dijkstra draws on the map."
+                "). Open a session — type any place, or use Whisper → MCP."
             : "API unhealthy: " + JSON.stringify(h),
           ok
         );
         ensureMap();
         setStatus("#chip-session", ok ? "api up" : "api down", ok);
+        setStatus("#chip-stt-provider", "speech ready", ok);
       })
       .catch(() => {
         showBanner(

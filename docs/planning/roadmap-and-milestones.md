@@ -21,10 +21,18 @@ Exit: two tenants isolated in prod-like env; risk assessment composited. _(met �
 - Voice Lab UI at `/voice/` for live mic, tool timeline, Mutare scenario, training scores
 Exit: Mutare voice scenario passes E2E. _(see `tests/test_gen3_voice.py`, `/api/v1/agents/scenarios/mutare`)_
 
-## Gen 4 — Commercial
-- Billing, plan tiers, console analytics, provider failover, insurance/govtech
-  service packs, explainability tuning from real trip data
-Exit: SLA met, calibrated cost weights validated.
+## Gen 4 — Commercial ✅ (scaffold)
+- Provider failover orchestration + health-gated switch (`/api/v1/ops/providers`)
+- Insurance / GovTech service packs (`/api/v1/packs`)
+- Cost-weight calibration from GPS traces (`/api/v1/ops/traces`, `/ops/calibrate`)
+- Object storage for audio/evidence + retention purge (local|S3; worker job)
+- Observability: Prometheus `/metrics`, JSON metrics, structured JSON logs, alert hooks
+- OpenAPI parity expanded (`docs/api/openapi.yaml` v0.4.0) — agents/sessions, webhooks, packs, ops
+- Security: voice transcript PII redaction, secret-manager wiring (env|file|vault-stub)
+- Ops docs (not built as product): runbook failover, observability, Open-Meteo licence gate
+Exit: calibrated weights from ≥3 traces; packs return composite envelopes; failover health snapshot green in local. _(see `tests/test_gen4_commercial.py`)_
 
 ## Open risks / decisions
-- Open-M
+- Open-Meteo free API is **non-commercial** — set `OPEN_METEO_COMMERCIAL_OK=true` only after licence; otherwise prod blocks open-meteo primary (`checks.open_meteo_licence`).
+- Google Routes / paid weather keys for production failover still optional.
+- Full billing ledger / Stripe metering deferred; tenant `plan` + Redis rate tiers cover Gen 4 MVP.

@@ -29,3 +29,7 @@ logs. Audio retention configurable per tenant.
 ## Secrets
 Provider keys injected via env/secret manager, never in images. Per-environment
 isolation.
+
+**Implemented (Gen 4):** `SECRET_MANAGER=env|file|vault-stub` (`megmis.common.secrets`).
+OpenWeather reads `OPENWEATHER_KEY` through the secret manager. Voice transcripts
+are redacted before session persistence (`megmis.common.pii`).

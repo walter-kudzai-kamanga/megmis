@@ -39,23 +39,30 @@ class GeoService:
         self.geocode_provider = get_geocoding_provider()
         self.weather = WeatherService()
 
-    def _prov(self) -> Provenance:
+    def _prov(self, provider: Any | None = None) -> Provenance:
+        src = provider if provider is not None else self.geocode_provider
         return Provenance(
-            data_source=getattr(self.geocode_provider, "name", "geo"),
+            data_source=getattr(src, "name", "geo"),
             confidence=Confidence.high,
         )
 
+    def _invoke(self, method: str, *args: Any):
+        """Call geocode adapter with primary→fallback failover on ProviderError."""
+        from megmis.providers.orchestrator import get_orchestrator
+
+        return get_orchestrator().invoke("geocode", method, *args)
+
     def geocode(self, address: str) -> Envelope[dict[str, Any]]:
-        points = self.geocode_provider.geocode(address)
+        points, provider = self._invoke("geocode", address)
         return Envelope(
             data={"results": [p.model_dump() for p in points]},
-            provenance=self._prov(),
+            provenance=self._prov(provider),
             request_id=new_request_id(),
         )
 
     def reverse(self, lat: float, lon: float) -> Envelope[dict[str, Any]]:
-        result = self.geocode_provider.reverse(lat, lon)
-        return Envelope(data=result, provenance=self._prov(), request_id=new_request_id())
+        result, provider = self._invoke("reverse", lat, lon)
+        return Envelope(data=result, provenance=self._prov(provider), request_id=new_request_id())
 
     def nearby(
         self, location: LocationInput, category: str | None = None, radius_m: int = 5000

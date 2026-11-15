@@ -1,0 +1,61 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.walter-kudzai-kamanga/megmis",
+  "title": "Mamiriro (MEGMIS)",
+  "description": "Zimbabwe-focused weather, geospatial, safe routing, road conditions, and journey-risk intelligence via REST and MCP (stdio + Streamable HTTP).",
+  "version": "0.1.0",
+  "websiteUrl": "https://github.com/walter-kudzai-kamanga/megmis",
+  "repository": {
+    "url": "https://github.com/walter-kudzai-kamanga/megmis",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "megmis",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeHint": "uvx",
+      "environmentVariables": [
+        {
+          "name": "DEV_API_KEY",
+          "description": "API key used for mutating tools and tenant-scoped persistence (optional for read-only local demos).",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "USE_PERSISTENCE",
+          "description": "Set false for in-memory/mock-friendly local stdio without Postgres/Redis.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "false"
+        },
+        {
+          "name": "GEOCODE_PROVIDER",
+          "description": "Geocoding adapter: mock | nominatim",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "mock"
+        },
+        {
+          "name": "WEATHER_PROVIDER",
+          "description": "Weather adapter: mock | open-meteo | openweather",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "mock"
+        },
+        {
+          "name": "ROUTING_PROVIDER",
+          "description": "Routing adapter: mock | osrm | valhalla | graphhopper",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "mock"
+        }
+      ]
+    }
+  ],
+  "remotes": []
+}

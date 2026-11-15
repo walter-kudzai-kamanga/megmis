@@ -284,3 +284,47 @@ class VoiceTrainingUtterance(Base):
     score: Mapped[float | None] = mapped_column(Float)
     meta: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GpsTrace(Base):
+    __tablename__ = "gps_traces"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    route_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("routes.id"), nullable=True)
+    profile: Mapped[str] = mapped_column(String(50), default="safest")
+    distance_m: Mapped[float] = mapped_column(Float, default=0.0)
+    duration_s: Mapped[float] = mapped_column(Float, default=0.0)
+    mean_speed_mps: Mapped[float] = mapped_column(Float, default=0.0)
+    points: Mapped[list] = mapped_column(JSONB, default=list)
+    meta: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CostCalibration(Base):
+    __tablename__ = "cost_calibrations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    profile: Mapped[str] = mapped_column(String(50), nullable=False)
+    trace_count: Mapped[int] = mapped_column(Integer, default=0)
+    weights_before: Mapped[dict] = mapped_column(JSONB, default=dict)
+    weights_after: Mapped[dict] = mapped_column(JSONB, default=dict)
+    features: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ObjectArtefact(Base):
+    __tablename__ = "object_artefacts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    key: Mapped[str] = mapped_column(String(500), nullable=False)
+    uri: Mapped[str] = mapped_column(String(700), nullable=False)
+    kind: Mapped[str] = mapped_column(String(50), default="audio")
+    content_type: Mapped[str] = mapped_column(String(100), default="application/octet-stream")
+    bytes: Mapped[int] = mapped_column(Integer, default=0)
+    retention_days: Mapped[int] = mapped_column(Integer, default=30)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    meta: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -53,11 +53,15 @@ class Edge:
     via: tuple[float, float] | None = None
 
 
-def _node_coord(name: str) -> tuple[float, float]:
+def node_coord(name: str) -> tuple[float, float]:
     c = KNOWN_PLACES.get(name) or KNOWN_PLACES.get(name.replace("_", " "))
     if not c:
         raise KeyError(name)
     return c
+
+
+def _node_coord(name: str) -> tuple[float, float]:
+    return node_coord(name)
 
 
 def _build_edges() -> list[Edge]:

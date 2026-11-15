@@ -20,6 +20,21 @@ jobs:
           pip install -e ".[dev]"
       - name: Ruff
         run: ruff check src tests scripts
+      - name: Validate MCP server.json + registry identity
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from megmis.mcp.runtime import MCP_SERVER_NAME, MCP_VERSION
+          root = Path(".")
+          manifest = json.loads((root / "server.json").read_text())
+          assert manifest["name"] == MCP_SERVER_NAME
+          assert manifest["version"] == MCP_VERSION
+          assert manifest["packages"][0]["identifier"] == "megmis"
+          readme = (root / "README.md").read_text()
+          assert f"mcp-name: {MCP_SERVER_NAME}" in readme
+          print("server.json OK", MCP_SERVER_NAME, MCP_VERSION)
+          PY
       - name: Unit + contract + bdd + tenant isolation
         env:
           USE_PERSISTENCE: "false"

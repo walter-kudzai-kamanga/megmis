@@ -1,73 +1,293 @@
 # Mamiriro (MEGMIS)
 
-**Mamiriro Environmental, Geospatial & Mobility Intelligence Server** — multi-tenant weather, geospatial, routing, road-condition, and journey-risk intelligence exposed via **FastAPI (REST)** and **MCP** (stdio + Streamable HTTP).
+<!-- mcp-name: io.github.walter-kudzai-kamanga/megmis -->
 
-Development documents: [`docs/README.md`](docs/README.md).
+**Mamiriro Environmental, Geospatial & Mobility Intelligence Server** — weather, geospatial, explained routing, road conditions, and journey-risk intelligence for Zimbabwe corridors (and beyond), exposed as **REST** and **MCP** (stdio + Streamable HTTP).
 
-## Gen 1 status
+Python 3.12 · FastAPI · PostGIS · Redis · official MCP Python SDK
 
-- Modular monolith: `weather`, `geo`, `routing` (+ traffic), `road`, `risk`
-- REST + MCP (stdio + Streamable HTTP at `/mcp`)
-- **PostGIS** models + Alembic migrations + RLS policies scaffolded
-- **Redis** weather/route cache, journey state, per-tenant rate limits
-- Seed: Zimbabwe places, corridor incidents, minimal OSM extract
-- CI: ruff, unit/contract/BDD, tenant-isolation gate, integration job
-- Gherkin acceptance automated via `pytest-bdd`
+| Surface | Endpoint |
+|---|---|
+| REST API | `http://127.0.0.1:8000/api/v1/...` |
+| OpenAPI / docs | `http://127.0.0.1:8000/docs` |
+| MCP (HTTP) | `http://127.0.0.1:8000/mcp/` |
+| MCP (stdio) | `megmis-mcp` / `python -m megmis.mcp_stdio` |
+| Health | `GET /healthz` |
+| Voice Lab (optional) | `http://127.0.0.1:8000/voice/` |
+| Console (optional) | `http://127.0.0.1:8088/` |
 
-## Gen 2 status
+**Status:** open-source prototype — local mocks by default; live providers optional via env. Not a paid SLA product yet.
 
-- **RLS** with `app.tenant_id` + non-`BYPASSRLS` role `megmis_app` (`USE_APP_ROLE=true` by default when `DATABASE_APP_URL` set; compose wires both)
-- Persisted API keys: create / rotate / revoke / scopes / expiry (`/api/v1/keys`)
-- Webhooks: subscriptions + HMAC `X-Mamiriro-Signature` + durable delivery queue / backoff (`webhook_deliveries`)
-- Journey Risk Assessment persisted via REST **and** MCP (`assess_journey_risk` resolves tenant)
-- Road crowdsourcing pipeline: validation, confidence, expiry, corroboration (worker job)
-- Traffic sub-module expanded under Routing (ADR-002); catalogue diagrams aligned
-- Console MVP on API (`/api/v1/console`) + optional `megmis-console` compose profile (`:8088`)
-- Real provider adapters: Open-Meteo / OpenWeather, Valhalla / GraphHopper / OSRM (+ HTTP unit tests; `LIVE_PROVIDERS=1` optional)
-- Worker: alert fan-out, webhook drain, report validation, OSM graph-refresh markers
-- `audit_log` + security event stream; Redis **token-bucket** rate limits by plan tier
-- OpenAPI + CI cover Gen 2 paths; CI builds api/worker/console images
+Engineering docs live under [`docs/`](docs/README.md).
 
-## Quick start (API only / memory fallback)
+---
+
+## What it does
+
+- **Weather** — current, forecast, hourly, alerts, historical, air quality, ag conditions, activity risk
+- **Geo** — geocode, reverse geocode, nearby places, emergency facilities
+- **Routing** — multi-criteria `optimize_route` with cost breakdown (safest / fastest / …), reroute, corridor conditions, traffic
+- **Roads** — incident reporting & crowdsourced condition pipeline
+- **Risk** — journey risk assessment (REST + MCP)
+- **Platform** — API keys, webhooks (HMAC), tenant RLS, rate limits, worker jobs
+- **Voice (Gen 3)** — Whisper STT + edge-tts, agent sessions, WebSocket + Voice Lab
+- **Commercial (Gen 4)** — provider failover, Insurance/GovTech packs, GPS cost calibration, object-store retention, `/metrics`
+
+Providers are swappable with health-gated failover (`mock` by default; Open-Meteo / OpenWeather, Valhalla / GraphHopper / OSRM via env). **Open-Meteo free API is non-commercial** — see `OPEN_METEO_COMMERCIAL_OK`.
+
+---
+
+## Requirements
+
+- Python **3.12+**
+- Docker (recommended for PostGIS + Redis)
+- Optional: `[voice]` extras for Whisper / TTS
+
+---
+
+## Quick start
+
+### 1. API only (in-memory / no Docker)
 
 ```bash
-cd "/home/deuce/megmis "
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env
-# optional for offline unit work:
-# USE_PERSISTENCE=false
+# USE_PERSISTENCE=false   # optional for offline unit work
 
 uvicorn megmis.main:app --reload --host 0.0.0.0 --port 8000
+# or: megmis-api
 ```
 
-Default keys:
+### 2. Full stack (PostGIS + Redis)
 
-```text
-X-API-Key: meg_local_devkey00000000000000000001   # demo
-X-API-Key: meg_local_tenantb00000000000000000002  # tenant-b (isolation tests)
-```
-
-## Full Gen 1 stack (PostGIS + Redis)
+Postgres is published on host **5433** (avoids clashing with a local 5432).
 
 ```bash
 docker compose up --build -d postgres redis
-# wait for healthy, then:
+cp .env.example .env
+
 export DATABASE_URL=postgresql+psycopg://megmis:megmis@localhost:5433/megmis
 export REDIS_URL=redis://localhost:6379/0
 export USE_PERSISTENCE=true
+
 alembic upgrade head
 python scripts/seed.py
 uvicorn megmis.main:app --reload --port 8000
 ```
 
-Postgres is published on host **5433** (avoids clashing with a local 5432).  
-Or all-in-one: `docker compose up --build`.
+All-in-one (API + DB + Redis + worker wiring):
 
-### OSM extract
+```bash
+docker compose up --build
+```
 
-Minimal corridor graph: `data/osm/zimbabwe-harare-bulawayo.osm`  
+### Dev API keys
+
+```text
+X-API-Key: meg_local_devkey00000000000000000001   # demo tenant
+X-API-Key: meg_local_tenantb00000000000000000002  # tenant-b (isolation tests)
+```
+
+### Auth
+
+- REST and MCP HTTP: send `X-API-Key: meg_…` on every request (hashed at rest; scopes enforced).
+- MCP stdio: seeds the demo tenant from `DEV_API_KEY` / settings (no header needed locally).
+- Mutating MCP tools also accept an `api_key` argument when no HTTP context is present.
+- OAuth / OIDC for remote connectors is planned for commercial hosting — not required for local stdio.
+- Details: [`docs/engineering/security-and-tenancy.md`](docs/engineering/security-and-tenancy.md).
+
+---
+
+## REST examples
+
+```bash
+export DEV_API_KEY=meg_local_devkey00000000000000000001
+
+curl -s -H "X-API-Key: $DEV_API_KEY" \
+  "http://127.0.0.1:8000/api/v1/weather/current?name=Harare" | jq
+
+curl -s -H "X-API-Key: $DEV_API_KEY" -H "Content-Type: application/json" \
+  -d '{"origin":{"name":"Harare"},"destination":{"name":"Bulawayo"},"profile":"safest"}' \
+  http://127.0.0.1:8000/api/v1/routes/optimize | jq
+
+# Gen 4 commercial pack + provider health
+curl -s -H "X-API-Key: $DEV_API_KEY" http://127.0.0.1:8000/api/v1/packs | jq
+curl -s -H "X-API-Key: $DEV_API_KEY" http://127.0.0.1:8000/api/v1/ops/providers | jq
+curl -s http://127.0.0.1:8000/metrics | head
+```
+
+Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).  
+Contract: [`docs/api/openapi.yaml`](docs/api/openapi.yaml) (v0.4.0). Gen 4 ops notes: [`docs/operations/gen4-commercial.md`](docs/operations/gen4-commercial.md).
+
+---
+
+## MCP
+
+Same tools as REST (weather, geo, routing, roads, journey risk, traffic), plus `create_journey`. Contracts: [`docs/api/mcp-tool-contracts.md`](docs/api/mcp-tool-contracts.md).
+
+Mutating tools (`report_road_condition`, `create_journey`, `reroute`) require `X-API-Key` on HTTP `/mcp`, or an `api_key` argument. Stdio seeds the demo tenant automatically.
+
+| Transport | How |
+|---|---|
+| Streamable HTTP | `http://127.0.0.1:8000/mcp/` (same process as the API) |
+| stdio | `megmis-mcp` or `python -m megmis.mcp_stdio` |
+
+### Cursor / Claude Desktop (stdio)
+
+After `pip install -e .` (or a published `megmis` wheel), point the client at the console script or module:
+
+```json
+{
+  "mcpServers": {
+    "mamiriro": {
+      "command": "megmis-mcp",
+      "env": {
+        "USE_PERSISTENCE": "false",
+        "DEV_API_KEY": "meg_local_devkey00000000000000000001"
+      }
+    }
+  }
+}
+```
+
+Editable checkout (absolute venv path):
+
+```json
+{
+  "mcpServers": {
+    "mamiriro": {
+      "command": "/ABS/PATH/TO/.venv/bin/python",
+      "args": ["-m", "megmis.mcp_stdio"],
+      "cwd": "/ABS/PATH/TO/megmis"
+    }
+  }
+}
+```
+
+### VS Code (MCP extension / `mcp.json`)
+
+```json
+{
+  "servers": {
+    "mamiriro": {
+      "type": "stdio",
+      "command": "megmis-mcp",
+      "env": {
+        "USE_PERSISTENCE": "false",
+        "DEV_API_KEY": "meg_local_devkey00000000000000000001"
+      }
+    }
+  }
+}
+```
+
+### Windsurf
+
+Same stdio shape as Cursor — add under MCP servers:
+
+```json
+{
+  "mcpServers": {
+    "mamiriro": {
+      "command": "megmis-mcp",
+      "env": {
+        "USE_PERSISTENCE": "false",
+        "DEV_API_KEY": "meg_local_devkey00000000000000000001"
+      }
+    }
+  }
+}
+```
+
+### Remote / HTTP clients
+
+With the API running (`uvicorn` or Docker), point Streamable HTTP clients at:
+
+```text
+http://127.0.0.1:8000/mcp/
+```
+
+Production:
+
+```text
+https://<your-host>/mcp/
+```
+
+Pass `X-API-Key` the way your client supports custom headers (or use tool `api_key` on mutating calls). Example Cursor-style remote entry (when your client supports URL transport):
+
+```json
+{
+  "mcpServers": {
+    "mamiriro-http": {
+      "url": "http://127.0.0.1:8000/mcp/",
+      "headers": {
+        "X-API-Key": "meg_local_devkey00000000000000000001"
+      }
+    }
+  }
+}
+```
+
+### Example prompts
+
+- Plan the safest Harare → Bulawayo drive and explain the cost breakdown.
+- Assess weather risk for outdoor work in Mutare tomorrow.
+- List road incidents on the Harare–Bulawayo corridor.
+- Assess journey risk from Harare to Bulawayo for a light truck.
+
+---
+
+## Configuration
+
+Copy [`.env.example`](.env.example) → `.env`. Important knobs:
+
+| Variable | Purpose |
+|---|---|
+| `USE_PERSISTENCE` | `true` → PostGIS + Redis; `false` → memory fallback |
+| `DATABASE_URL` / `DATABASE_APP_URL` | Owner vs RLS app role (`megmis_app`) |
+| `USE_APP_ROLE` | Enforce tenant RLS via app role |
+| `WEATHER_PROVIDER` | `mock` \| `open-meteo` \| `openweather` |
+| `ROUTING_PROVIDER` | `mock` \| `valhalla` \| `graphhopper` \| `osrm` |
+| `GEOCODE_PROVIDER` | `mock` \| `nominatim` |
+| `SPEECH_PROVIDER` / `TTS_PROVIDER` | `whisper` / `edge` (voice extras) |
+| `OSM_EXTRACT_PATH` | Corridor graph for local Dijkstra |
+
+OSM seed extract: `data/osm/zimbabwe-harare-bulawayo.osm`  
 Optional full country PBF: `./scripts/download_osm_extract.sh`
+
+---
+
+## Worker & console
+
+```bash
+docker compose up -d worker
+docker compose --profile console up -d console   # http://127.0.0.1:8088/
+
+# or locally
+megmis-worker          # or: python -m megmis.worker
+python -m megmis.console_app
+```
+
+Worker drains webhooks, validates road reports, fan-outs alerts, and marks OSM graph refresh.
+
+---
+
+## Voice Lab (optional)
+
+```bash
+pip install -e ".[voice]"
+# SPEECH_PROVIDER=whisper  WHISPER_MODEL=base  TTS_PROVIDER=edge
+uvicorn megmis.main:app --reload --port 8000
+# open http://127.0.0.1:8000/voice/
+```
+
+- STT: OpenAI Whisper via `faster-whisper` (falls back to mock if deps missing)
+- TTS: `edge-tts` (ZA English; Shona/Ndebele localized reply text)
+- Scenario: `POST /api/v1/agents/scenarios/mutare`
+- WebSocket: `ws://127.0.0.1:8000/ws/voice/{session_id}?api_key=...`
+
+---
 
 ## Tests
 
@@ -78,63 +298,68 @@ USE_PERSISTENCE=false pytest -q -m "not integration"
 # integration (PostGIS + Redis required)
 INTEGRATION=1 USE_PERSISTENCE=true pytest -q -m integration
 
-# Gen 2 platform suite (+ provider HTTP mocks)
-INTEGRATION=1 USE_PERSISTENCE=true USE_APP_ROLE=true pytest -q tests/test_gen2_platform.py tests/test_providers_http.py
+# Gen 2 platform + provider HTTP mocks
+INTEGRATION=1 USE_PERSISTENCE=true USE_APP_ROLE=true \
+  pytest -q tests/test_gen2_platform.py tests/test_providers_http.py
 
-# Deep smokes (API must be running) — Gen1 + Gen2 connected
+# deep smokes (API must be running)
 python scripts/gen1_deep_smoke.py
 python scripts/gen2_deep_smoke.py
 python scripts/gen12_deep_smoke.py
 ```
 
-## Worker + optional console
+CI: [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Strategy: [`docs/quality/test-strategy.md`](docs/quality/test-strategy.md).
 
-```bash
-docker compose up -d worker
-docker compose --profile console up -d console   # http://127.0.0.1:8088/
-# or locally:
-python -m megmis.worker
-python -m megmis.console_app
-```
+---
 
-## Gen 3 — Voice Lab (Whisper)
+## Publish & discovery
 
-```bash
-pip install -e ".[voice]"          # faster-whisper + edge-tts
-# SPEECH_PROVIDER=whisper WHISPER_MODEL=base
-uvicorn megmis.main:app --reload --port 8000
-# open Voice Lab:
-#   http://127.0.0.1:8000/voice/
-```
+When build + tests are green, ship for worldwide use with the publish gate:
 
-- STT: OpenAI Whisper via `faster-whisper` (falls back to mock if deps missing)
-- TTS: `edge-tts` (ZA English voices; Shona/Ndebele localized reply text)
-- Mutare scenario: `POST /api/v1/agents/scenarios/mutare`
-- WebSocket: `ws://127.0.0.1:8000/ws/voice/{session_id}?api_key=...`
+→ [`docs/operations/mcp-publish-and-discover.md`](docs/operations/mcp-publish-and-discover.md)
 
-## MCP
+PyPI / stdio → deploy `/mcp` → official MCP Registry (`server.json`) → client directories → GEO docs → CI republish on tags.
 
-| Transport | How |
-|---|---|
-| Streamable HTTP | `http://127.0.0.1:8000/mcp/` |
-| stdio | `python -m megmis.mcp_stdio` |
+---
 
-## Publish & discovery (after MCP is green)
-
-When build + tests are done, follow the worldwide recognition checklist:
-
-[`docs/operations/mcp-publish-and-discover.md`](docs/operations/mcp-publish-and-discover.md)
-
-(PyPI → deploy `/mcp` → official registry → directories → GEO docs → CI republish.)
-
-## Layout
+## Project layout
 
 ```text
-src/megmis/     app code (api, engines, providers, mcp, db)
-alembic/        migrations
-scripts/        seed + entrypoint + OSM download
-data/osm/       Zimbabwe corridor extract
-tests/          unit, contract, bdd, isolation, integration
-docs/           product & engineering specs
-.github/workflows/ci.yml
+src/megmis/
+  main.py           FastAPI app + /mcp mount + voice static
+  mcp_stdio.py      stdio MCP entry (megmis-mcp)
+  worker.py         background jobs (megmis-worker)
+  console_app.py    optional ops console
+  api/v1/           REST routers
+  mcp/              MCP tools, resources, prompts
+  engines/          weather, geo, routing, road, risk, …
+  providers/        Protocol adapters (mock + live)
+  db/               SQLAlchemy models, Redis, repos
+  common/           auth, schemas, errors
+alembic/            migrations (+ RLS)
+scripts/            seed, entrypoint, smokes, OSM download
+data/osm/           Zimbabwe corridor extract
+tests/              unit, contract, BDD, isolation, integration
+docs/               ADRs, OpenAPI, MCP contracts, ops
 ```
+
+---
+
+## Documentation map
+
+| Doc | Contents |
+|---|---|
+| [`docs/README.md`](docs/README.md) | Full document index |
+| [`docs/architecture/adr-0001-architecture-decisions.md`](docs/architecture/adr-0001-architecture-decisions.md) | ADRs |
+| [`docs/architecture/service-catalogue.md`](docs/architecture/service-catalogue.md) | Service ownership |
+| [`docs/api/openapi.yaml`](docs/api/openapi.yaml) | REST contract |
+| [`docs/api/mcp-tool-contracts.md`](docs/api/mcp-tool-contracts.md) | MCP tools / resources / prompts |
+| [`docs/planning/roadmap-and-milestones.md`](docs/planning/roadmap-and-milestones.md) | Gen 1–4 roadmap |
+| [`docs/operations/docker-and-compose.md`](docs/operations/docker-and-compose.md) | Compose & env |
+| [`docs/operations/mcp-publish-and-discover.md`](docs/operations/mcp-publish-and-discover.md) | Publish & discovery gate |
+
+---
+
+## License
+
+See [`LICENSE`](LICENSE) — all rights reserved until an open-source license is chosen for public PyPI / MCP Registry reuse.

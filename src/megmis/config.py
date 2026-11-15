@@ -27,11 +27,34 @@ class Settings(BaseSettings):
     voice_audio_dir: str = "data/audio"
     voice_ui_enabled: bool = True
 
+    # Gen 4 failover chains (comma-separated)
+    weather_failover: str = "openweather,mock"
+    routing_failover: str = "osrm,graphhopper,mock"
+    geocode_failover: str = "mock"
+    speech_failover: str = "mock"
+    # Free Open-Meteo is NON-COMMERCIAL — must be true before prod open-meteo
+    open_meteo_commercial_ok: bool = False
+
     open_meteo_base_url: str = "https://api.open-meteo.com"
     openweather_key: str = ""
     valhalla_url: str = ""
     graphhopper_url: str = ""
     osrm_url: str = "https://router.project-osrm.org"
+
+    # Gen 4 object storage + secrets + retention
+    object_store_backend: str = "local"  # local | s3
+    object_store_dir: str = "data/object-store"
+    audio_retention_days: int = 30
+    evidence_retention_days: int = 90
+    s3_endpoint: str = ""
+    s3_bucket: str = "megmis"
+    s3_access_key: str = ""
+    s3_secret_key: str = ""
+    s3_region: str = "us-east-1"
+    secret_manager: str = "env"  # env | file | vault-stub
+    secret_file: str = ""
+    pii_salt: str = "megmis-pii"
+    structured_logs: bool = True
 
     # RLS-enforced app role (Gen 2). When database_app_url is set, prefer it unless USE_APP_ROLE=false.
     database_app_url: str = (
@@ -40,6 +63,14 @@ class Settings(BaseSettings):
     use_app_role: bool = True
 
     mcp_transport: str = "http"
+    # Comma-separated Host allowlist for Streamable HTTP DNS-rebinding protection.
+    # Use host:* for any port. Include public hostname(s) when deploying behind TLS.
+    mcp_allowed_hosts: str = (
+        "127.0.0.1:*,localhost:*,[::1]:*,testserver,testserver:*"
+    )
+    mcp_allowed_origins: str = (
+        "http://127.0.0.1:*,http://localhost:*,http://[::1]:*,http://testserver:*"
+    )
     console_upstream: str = "http://api:8000"  # used by optional console service
     console_port: int = 8088
     dev_api_key: str = "meg_local_devkey00000000000000000001"

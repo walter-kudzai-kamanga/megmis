@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import httpx
 
 from megmis.common.errors import ProviderError
+from megmis.common.secrets import secret
 from megmis.config import get_settings
 
 
@@ -13,7 +14,8 @@ class OpenWeatherProvider:
     name = "openweather"
 
     def __init__(self) -> None:
-        self.key = get_settings().openweather_key
+        # Prefer secret manager (env/file/vault-stub), fall back to settings
+        self.key = secret("OPENWEATHER_KEY") or get_settings().openweather_key
         if not self.key:
             raise ProviderError("OPENWEATHER_KEY not configured", retryable=False)
 
@@ -96,7 +98,7 @@ class OpenWeatherProvider:
         except ProviderError:
             return []
         alerts = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for a in data.get("alerts", []):
             alerts.append(
                 {
@@ -104,8 +106,8 @@ class OpenWeatherProvider:
                     "severity": "severe",
                     "source": a.get("sender_name", "openweather"),
                     "official": True,
-                    "valid_from": datetime.fromtimestamp(a.get("start", now.timestamp()), tz=timezone.utc).isoformat(),
-                    "valid_to": datetime.fromtimestamp(a.get("end", (now + timedelta(hours=6)).timestamp()), tz=timezone.utc).isoformat(),
+                    "valid_from": datetime.fromtimestamp(a.get("start", now.timestamp()), tz=UTC).isoformat(),
+                    "valid_to": datetime.fromtimestamp(a.get("end", (now + timedelta(hours=6)).timestamp()), tz=UTC).isoformat(),
                 }
             )
         return alerts

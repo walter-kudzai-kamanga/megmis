@@ -33,9 +33,9 @@ def _prepare_persistence(settings):
         yield
         return
 
-    from alembic import command
     from alembic.config import Config
 
+    from alembic import command
     from megmis.common.auth import seed_dev_key
 
     cfg = Config("alembic.ini")

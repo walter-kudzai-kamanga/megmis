@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 # Seeded corridor congestion profiles for Zimbabwe trunk roads (Gen 2 expansion).
@@ -41,7 +41,7 @@ def _match_profile(corridor: str) -> dict[str, Any]:
 def get_congestion(corridor: str, at_time: datetime | None = None) -> dict[str, Any]:
     """Traffic sub-module interface (ADR-002)."""
     profile = _match_profile(corridor)
-    when = at_time or datetime.now(timezone.utc)
+    when = at_time or datetime.now(UTC)
     hour = when.hour
     peaks = profile["peak_hours"]
     in_peak = (peaks[0] <= hour < peaks[1]) or (peaks[2] <= hour < peaks[3])

@@ -15,7 +15,7 @@ Structured engineering docs for the **Mamiriro Environmental, Geospatial & Mobil
 | [domain/](domain/) | Domain entities, PostGIS schema, migrations |
 | [api/](api/) | OpenAPI surface and MCP tool/resource/prompt contracts |
 | [engineering/](engineering/) | Route cost model, providers, security & tenancy |
-| [operations/](operations/) | Docker, CI/CD, observability, runbook, MCP publish & discovery |
+| [operations/](operations/) | Docker, CI/CD, observability, Gen 4 commercial runbook, MCP publish & discovery |
 | [quality/](quality/) | Test strategy and Gherkin acceptance scenarios |
 | [planning/](planning/) | Generational roadmap and open decisions |
 | [_raw/](_raw/) | Original DeepSeek export filenames (archived) |
@@ -66,6 +66,7 @@ Structured engineering docs for the **Mamiriro Environmental, Geospatial & Mobil
 | [cicd-pipeline.md](operations/cicd-pipeline.md) | Lint → test → build → scan → deploy stages and gates |
 | [observability.md](operations/observability.md) | Metrics, traces, logs, dashboards, alerts |
 | [operations-runbook.md](operations/operations-runbook.md) | Backups, failover, incidents, capacity, on-call |
+| [gen4-commercial.md](operations/gen4-commercial.md) | Packs, GPS calibration, object retention, Open-Meteo licence gate |
 | [mcp-publish-and-discover.md](operations/mcp-publish-and-discover.md) | **Final gate:** PyPI, deploy, official registry, directories, GEO, CI republish |
 
 ## Quality

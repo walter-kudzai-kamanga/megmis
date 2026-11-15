@@ -11,3 +11,6 @@ build/
 .coverage
 htmlcov/
 .DS_Store
+data/audio/
+data/object-store/
+data/osm/.graph_refresh/

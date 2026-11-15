@@ -45,7 +45,6 @@ class ValhallaRoutingProvider:
             raise ProviderError(str(exc), retryable=True) from exc
         trip = data.get("trip", {})
         summary = trip.get("summary", {})
-        legs = trip.get("legs") or [{}]
         shape_len = summary.get("length", 0) * 1000
         duration = summary.get("time", 0)
         return [
@@ -157,19 +156,28 @@ class OSRMRoutingProvider:
         url = f"{self.base}/route/v1/driving/{';'.join(coords)}"
         try:
             with httpx.Client(timeout=20.0) as client:
-                r = client.get(url, params={"overview": "false", "alternatives": "true"})
+                r = client.get(
+                    url,
+                    params={"overview": "full", "geometries": "geojson", "alternatives": "true"},
+                )
                 r.raise_for_status()
                 data = r.json()
         except Exception as exc:  # noqa: BLE001
             raise ProviderError(str(exc), retryable=True) from exc
         out = []
         for i, route in enumerate(data.get("routes") or []):
+            geom = []
+            coords_geo = ((route.get("geometry") or {}).get("coordinates")) or []
+            for lon, lat in coords_geo:
+                geom.append([round(lat, 5), round(lon, 5)])
             out.append(
                 {
                     "id": f"osrm-{i}",
                     "label": f"OSRM alt {i+1}",
                     "distance_m": route.get("distance", 0),
                     "duration_s": route.get("duration", 0),
+                    "geometry": geom,
+                    "algorithm": "osrm",
                     "segments": [
                         {
                             "name": "osrm",

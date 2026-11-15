@@ -80,6 +80,8 @@ flowchart BT
 | Road & Incident Intelligence | crowdsourced reports, incidents, validation, confidence, expiry | sync + async (validation) | REST, MCP, webhooks | road_reports, incidents |
 | Journey Risk Assessment | composes weather+geo+routing+road to score journey risk | sync | REST, MCP | risk_assessments |
 | Voice Intelligence | Whisper STT, TTS, agent sessions, Mutare scenario, training lab | async (WebRTC/WS) | REST, WebSocket, WebRTC, Voice Lab `/voice/` | agent_sessions, audio_artefacts, voice_training_utterances |
+| Commercial Packs (Gen 4) | Insurance corridor / GovTech emergency & mobility composites | sync | REST, MCP | composed envelopes |
+| Ops / Observability (Gen 4) | Provider failover health, GPS calibration, object-store retention, metrics | sync + worker | REST `/ops`, `/metrics` | gps_traces, cost_calibrations, object_artefacts |
 
 ## Traffic sub-module (ADR-002)
 - Part of Routing & Optimization (not a standalone Gen 2 service).
@@ -117,6 +119,8 @@ flowchart BT
 | get_traffic_congestion | GET /api/v1/traffic/congestion | Routing & Optimization (Traffic) |
 | (composite) | POST /api/v1/journeys, GET /api/v1/journeys/{id} | Routing & Optimization (journey state) |
 | (composite) | POST /api/v1/agents/sessions | Voice Intelligence |
+| list_service_packs / run_service_pack | GET/POST /api/v1/packs… | Commercial Packs |
+| (ops) | GET /api/v1/ops/providers, /ops/calibrate, /metrics | Ops / Observability |
 
 ## Dependency graph
 Weather -> (none)

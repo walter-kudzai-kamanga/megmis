@@ -366,6 +366,17 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 .chip.ok { border-color: color-mix(in srgb, var(--ok) 50%, var(--line)); color: var(--ok); }
 .chip.bad { border-color: color-mix(in srgb, var(--danger) 50%, var(--line)); color: var(--danger); }
 
+.whisper-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.75rem 0 0.55rem;
+}
+.whisper-out {
+  min-height: 140px;
+  max-height: 280px;
+}
+
 .explorer {
   margin-top: 1.25rem;
   animation: rise 0.8s ease both;

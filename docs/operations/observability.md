@@ -5,6 +5,10 @@ Per service/engine/provider/tenant: request_count, error_count, latency histogra
 cache_hit_ratio, provider_failover_count, rate_limit_rejections.
 Routing: graph_load_time, route_p95_ms. Voice: session_count, stt_latency.
 
+**Implemented (Gen 4):** in-process registry → `GET /metrics` (Prometheus text) and
+`GET /api/v1/ops/metrics` (JSON). Counters include `request_count`, `error_count`,
+`provider_failover_count`, `object_store_puts`, `alerts_fired`.
+
 ## Traces
 Correlation id propagated MCP -> orchestrator -> service -> provider. One trace
 per request; spans per engine call.

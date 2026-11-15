@@ -1,8 +1,10 @@
 openapi: 3.1.0
 info:
   title: Mamiriro Intelligence API
-  version: 0.2.0
-  description: REST surface of MEGMIS (Gen 1 + Gen 2). Shared intelligence services behind REST, MCP, WS.
+  version: 0.4.0
+  description: >
+    REST surface of MEGMIS (Gen 1–4). Shared intelligence services behind REST, MCP, WS.
+    Gen 4 adds commercial packs, provider failover ops, GPS calibration, object storage retention.
 servers:
   - url: https://api.mamiriro.example/api/v1
   - url: http://127.0.0.1:8000/api/v1
@@ -45,16 +47,19 @@ components:
         name: { type: string }
     RouteRequest:
       type: object
-      required: [origin, destination, profile]
+      required: [origin, destination]
       properties:
         origin: { $ref: '#/components/schemas/LocationInput' }
         destination: { $ref: '#/components/schemas/LocationInput' }
         waypoints:
           type: array
           items: { $ref: '#/components/schemas/LocationInput' }
-        profile: { type: string, enum: [fastest, safest, cheapest, fuel] }
-        vehicle_class: { type: string, enum: [car, light_truck, hgv] }
+        profile: { type: string, enum: [fastest, safest, cheapest, fuel], default: safest }
+        vehicle_class: { type: string, enum: [car, light_truck, hgv], default: car }
         departure_time: { type: string, format: date-time }
+        priorities:
+          type: array
+          items: { type: string }
     CreateApiKey:
       type: object
       properties:
@@ -79,6 +84,49 @@ components:
         destination: { $ref: '#/components/schemas/LocationInput' }
         profile: { type: string, default: safest }
         activity: { type: string, default: road_trip }
+    AgentSessionCreate:
+      type: object
+      properties:
+        lang: { type: string, enum: [en, sn, nd], default: en }
+        channel: { type: string, default: ui }
+        scenario: { type: string, nullable: true }
+    AgentUtterance:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
+        lang: { type: string, default: en }
+        synthesize: { type: boolean, default: true }
+    PackRunRequest:
+      type: object
+      properties:
+        origin: { $ref: '#/components/schemas/LocationInput' }
+        destination: { $ref: '#/components/schemas/LocationInput' }
+        location: { $ref: '#/components/schemas/LocationInput' }
+        profile: { type: string, default: safest }
+    GpsPoint:
+      type: object
+      required: [lat, lon]
+      properties:
+        lat: { type: number }
+        lon: { type: number }
+        ts: { type: string, format: date-time }
+        speed_mps: { type: number }
+    TraceIngest:
+      type: object
+      required: [points]
+      properties:
+        points:
+          type: array
+          minItems: 2
+          items: { $ref: '#/components/schemas/GpsPoint' }
+        profile: { type: string, default: safest }
+        route_id: { type: string, nullable: true }
+    CalibrateRequest:
+      type: object
+      properties:
+        profile: { type: string, default: safest }
+        min_traces: { type: integer, default: 3 }
 paths:
   /weather/current:
     get:
@@ -96,38 +144,72 @@ paths:
     get: { summary: Active alerts, responses: { '200': { description: OK } } }
   /weather/risk:
     post: { summary: Activity-based weather risk, responses: { '200': { description: OK } } }
+  /weather/activities:
+    post: { summary: Outdoor activity recommendations, responses: { '200': { description: OK } } }
+  /weather/compare:
+    get: { summary: Compare weather across named places, responses: { '200': { description: OK } } }
+  /weather/historical:
+    get: { summary: Historical weather, responses: { '200': { description: OK } } }
+  /weather/air-quality:
+    get: { summary: Air quality, responses: { '200': { description: OK } } }
+  /weather/agricultural:
+    get: { summary: Agricultural conditions, responses: { '200': { description: OK } } }
   /geo/geocode:
-    get: { summary: Geocode, responses: { '200': { description: OK } } }
+    get: { summary: Geocode / reverse, responses: { '200': { description: OK } } }
   /geo/nearby:
     get: { summary: Nearby places, responses: { '200': { description: OK } } }
+  /geo/emergency:
+    get: { summary: Emergency facilities, responses: { '200': { description: OK } } }
   /routes/optimize:
     post:
-      summary: Optimised routes with explanations
+      summary: Optimised routes with explanations (Dijkstra / OSRM)
       requestBody:
         content: { application/json: { schema: { $ref: '#/components/schemas/RouteRequest' } } }
       responses: { '200': { description: OK } }
+  /routes/reroute:
+    post: { summary: Reroute active journey, responses: { '200': { description: OK } } }
+  /routes/{route_id}/conditions:
+    get: { summary: Route corridor conditions, responses: { '200': { description: OK } } }
   /journeys:
     post: { summary: Create monitored journey, responses: { '201': { description: Created } } }
-  /journeys/{id}:
+  /journeys/{journey_id}:
     get: { summary: Journey status, responses: { '200': { description: OK } } }
   /roads/reports:
     post: { summary: Submit road-condition report, responses: { '201': { description: Created } } }
   /roads/incidents:
     get: { summary: List incidents, responses: { '200': { description: OK } } }
+
   /agents/sessions:
-    post: { summary: Start voice agent session (Gen 3), responses: { '201': { description: Created } } }
+    post:
+      summary: Start voice agent session (Gen 3)
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/AgentSessionCreate' } } }
+      responses: { '201': { description: Created } }
+  /agents/sessions/{session_id}:
+    get: { summary: Get agent session, responses: { '200': { description: OK } } }
+  /agents/sessions/{session_id}/end:
+    post: { summary: End agent session, responses: { '200': { description: OK } } }
   /agents/sessions/{session_id}/utterance:
-    post: { summary: Text utterance → tools → spoken reply, responses: { '200': { description: OK } } }
+    post:
+      summary: Text utterance → tools → spoken reply
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/AgentUtterance' } } }
+      responses: { '200': { description: OK } }
   /agents/sessions/{session_id}/stt:
     post: { summary: Upload audio for Whisper STT (+ optional agent turn), responses: { '200': { description: OK } } }
+  /agents/sessions/{session_id}/tts:
+    post: { summary: Synthesize speech for text, responses: { '200': { description: OK } } }
   /agents/scenarios/mutare:
     post: { summary: Mutare voice acceptance scenario, responses: { '200': { description: OK } } }
   /agents/training/prompts:
     get: { summary: Voice training prompts (en/sn/nd), responses: { '200': { description: OK } } }
   /agents/training/score:
     post: { summary: Score training utterance (WER + intent), responses: { '200': { description: OK } } }
+  /agents/webrtc/signal:
+    post: { summary: WebRTC signaling exchange, responses: { '200': { description: OK } } }
+  /agents/webrtc/signal/{session_id}:
+    get: { summary: Poll WebRTC signaling, responses: { '200': { description: OK } } }
 
-  # --- Gen 2 ---
   /keys:
     get: { summary: List API keys for tenant, responses: { '200': { description: OK } } }
     post:
@@ -167,22 +249,51 @@ paths:
         - { name: at_time, in: query, schema: { type: string, format: date-time } }
       responses: { '200': { description: OK } }
   /traffic/estimate:
-    get:
-      summary: Traffic-adjusted duration estimate
-      parameters:
-        - { name: corridor, in: query, required: true, schema: { type: string } }
-        - { name: duration_s, in: query, required: true, schema: { type: number } }
-      responses: { '200': { description: OK } }
+    get: { summary: Traffic-adjusted duration estimate, responses: { '200': { description: OK } } }
   /traffic/corridors:
     get: { summary: List known corridor profiles, responses: { '200': { description: OK } } }
 
   /console/:
-    get: { summary: Console MVP HTML (keys, usage, health), responses: { '200': { description: HTML } } }
+    get: { summary: Console MVP HTML, responses: { '200': { description: HTML } } }
   /console/health:
     get: { summary: Console health checks, responses: { '200': { description: OK } } }
   /console/usage:
-    get:
-      summary: Tenant usage summary
-      parameters:
-        - { name: hours, in: query, schema: { type: integer, default: 24 } }
+    get: { summary: Tenant usage summary, responses: { '200': { description: OK } } }
+
+  # --- Gen 4 Commercial ---
+  /packs:
+    get: { summary: List Insurance / GovTech service packs, responses: { '200': { description: OK } } }
+  /packs/{pack_id}/run:
+    post:
+      summary: Run a commercial service pack
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/PackRunRequest' } } }
       responses: { '200': { description: OK } }
+
+  /metrics:
+    get: { summary: Prometheus text metrics (also on /metrics root), responses: { '200': { description: text/plain } } }
+  /ops/metrics:
+    get: { summary: JSON metrics snapshot, responses: { '200': { description: OK } } }
+  /ops/providers:
+    get: { summary: Provider failover health snapshot, responses: { '200': { description: OK } } }
+  /ops/providers/probe:
+    post: { summary: Run provider health probes + gated failover, responses: { '200': { description: OK } } }
+  /ops/traces:
+    get: { summary: List GPS traces for calibration, responses: { '200': { description: OK } } }
+    post:
+      summary: Ingest GPS trip trace
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/TraceIngest' } } }
+      responses: { '201': { description: Created } }
+  /ops/calibrate:
+    post:
+      summary: Calibrate cost weights from GPS traces
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/CalibrateRequest' } } }
+      responses: { '200': { description: OK } }
+  /ops/weights:
+    get: { summary: Current routing cost weights, responses: { '200': { description: OK } } }
+  /ops/storage/purge:
+    post: { summary: Purge expired object-store artefacts, responses: { '200': { description: OK } } }
+  /ops/storage/put-demo:
+    post: { summary: Store demo evidence blob with retention, responses: { '200': { description: OK } } }

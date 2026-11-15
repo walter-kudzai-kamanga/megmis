@@ -7,6 +7,8 @@ from megmis.api.v1 import (
     health,
     journeys,
     keys,
+    ops,
+    packs,
     risk,
     roads,
     routes,
@@ -28,3 +30,5 @@ api_router.include_router(webhooks.router)
 api_router.include_router(console.router)
 api_router.include_router(traffic.router)
 api_router.include_router(agents.router)
+api_router.include_router(packs.router)
+api_router.include_router(ops.router)

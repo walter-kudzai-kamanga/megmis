@@ -20,8 +20,10 @@ def test_intent_detection_multilingual():
     assert unresolved == []
     o2, d2, u2 = extract_od("route from harare to somewherefakeville")
     assert o2 == "Harare"
-    assert d2 is None
-    assert u2 and "somewherefakeville" in u2[0].lower()
+    assert d2 == "Somewherefakeville"  # free-text kept; Nominatim resolves at route time
+    assert u2 == []
+    o3, d3, _ = extract_od("harare to nyamaropa")
+    assert o3 == "Harare" and d3 == "Nyamaropa"
 
 
 def test_i18n_localize():
@@ -48,26 +50,25 @@ def test_mock_speech_roundtrip():
 def test_speech_factory_defaults_to_usable_provider(monkeypatch):
     from megmis.config import get_settings
     from megmis.providers.factory import get_speech_provider
+    from megmis.providers.orchestrator import reset_orchestrator
 
-    get_settings.cache_clear()
-    get_speech_provider.cache_clear()
     monkeypatch.setenv("SPEECH_PROVIDER", "mock")
     get_settings.cache_clear()
-    get_speech_provider.cache_clear()
+    reset_orchestrator()
     p = get_speech_provider()
     assert p.stt(b"abc", lang="nd")["lang"] == "nd"
     get_settings.cache_clear()
-    get_speech_provider.cache_clear()
+    reset_orchestrator()
 
 
 @pytest.mark.integration
 def test_mutare_voice_scenario(client, headers_a, monkeypatch):
     monkeypatch.setenv("SPEECH_PROVIDER", "mock")
     from megmis.config import get_settings
-    from megmis.providers.factory import get_speech_provider
+    from megmis.providers.orchestrator import reset_orchestrator
 
     get_settings.cache_clear()
-    get_speech_provider.cache_clear()
+    reset_orchestrator()
 
     r = client.post("/api/v1/agents/scenarios/mutare?lang=en", headers=headers_a)
     assert r.status_code == 200

@@ -85,6 +85,15 @@ Output: { incidents: [ {id, type, severity, confidence, verified, geometry} ] }
 Input:  { location, type }
 Output: { facilities: [ {name, type, contact, lat, lon} ] }
 
+### list_service_packs (Gen 4)
+Input:  {}
+Output: { packs: [ {id, name, description, scopes[], vertical} ] }
+
+### run_service_pack (Gen 4)
+Input:  { pack_id, origin?, destination?, location?, profile? }
+Output: { pack_id, sections{}, summary{}, run_id }
+Packs: insurance.corridor, govtech.emergency, govtech.mobility
+
 ## Resources
 weather://current/{location}, weather://forecast/{location},
 weather://alerts/{location}, weather://historical/{location},
@@ -99,4 +108,11 @@ Protocol-level capability negotiation at connect; tenant-scoped tool visibility
 only after auth completes. No tenant-specific tool listed pre-auth.
 
 ## Versioning
-Tool schema versioned in `x-mcp-version`; breaking changes require new tool name.
+Tool schema versioned in response `meta.x-mcp-version` (currently `1.0.0`);
+breaking changes require a new tool name. Registry identity:
+`io.github.walter-kudzai-kamanga/megmis` (`server.json` + README `mcp-name`).
+
+## Auth (mutating tools)
+`report_road_condition` requires scope `road:write`.
+`create_journey` / `reroute` require scope `journey:write`.
+HTTP: `X-API-Key`. Tool arg: `api_key`. Stdio seeds the demo tenant.
