@@ -1,0 +1,79 @@
+# Publish megmis to PyPI on version tags via Trusted Publishing (OIDC).
+# One-time setup on https://pypi.org :
+#   1. Create project "megmis" (or pending publisher) for this repo
+#   2. Trusted publisher → GitHub
+#        Owner: walter-kudzai-kamanga
+#        Repo:  megmis
+#        Workflow: release.yml
+#        Environment: pypi
+#   3. Create GitHub Environment named "pypi" (optional protection rules)
+# Then: git tag v0.1.0 && git push origin v0.1.0
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install build tools
+        run: python -m pip install -U pip build twine
+      - name: Sync identity (version / mcp-name)
+        run: |
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+          from megmis import __version__
+          from megmis.mcp.runtime import MCP_SERVER_NAME
+
+          assert __version__
+          pyproject = Path("pyproject.toml").read_text()
+          m = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.M)
+          assert m and m.group(1) == __version__, (m and m.group(1), __version__)
+          manifest = json.loads(Path("server.json").read_text())
+          assert manifest["version"] == __version__
+          assert manifest["packages"][0]["version"] == __version__
+          assert manifest["name"] == MCP_SERVER_NAME
+          readme = Path("README.md").read_text()
+          assert f"mcp-name: {MCP_SERVER_NAME}" in readme
+          print("identity OK", MCP_SERVER_NAME, __version__)
+          PY
+        env:
+          PYTHONPATH: src
+      - name: Build sdist + wheel
+        run: python -m build
+      - name: Twine check
+        run: twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: pypi
+      url: https://pypi.org/p/megmis
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

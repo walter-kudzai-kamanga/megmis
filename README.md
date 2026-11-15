@@ -16,7 +16,7 @@ Python 3.12 · FastAPI · PostGIS · Redis · official MCP Python SDK
 | Voice Lab (optional) | `http://127.0.0.1:8000/voice/` |
 | Console (optional) | `http://127.0.0.1:8088/` |
 
-**Status:** open-source prototype — local mocks by default; live providers optional via env. Not a paid SLA product yet.
+**Status:** MIT-licensed **public prototype (v0.1.0)** — local mocks by default; live providers optional via env. Not a paid SLA or production weather/routing product yet. Listings must say **prototype / mock providers**.
 
 Engineering docs live under [`docs/`](docs/README.md).
 
@@ -42,6 +42,33 @@ Providers are swappable with health-gated failover (`mock` by default; Open-Mete
 - Python **3.12+**
 - Docker (recommended for PostGIS + Redis)
 - Optional: `[voice]` extras for Whisper / TTS
+
+---
+
+## Install (PyPI / local package)
+
+Once published (or from a built wheel):
+
+```bash
+pip install megmis
+# optional voice extras: pip install "megmis[voice]"
+
+# stdio MCP for Cursor / Claude / VS Code / Windsurf
+USE_PERSISTENCE=false megmis-mcp
+
+# or one-shot without a permanent install:
+uvx --from megmis megmis-mcp
+```
+
+Build locally without uploading:
+
+```bash
+pip install -e ".[dev]"
+python -m build
+twine check dist/*
+```
+
+Release to PyPI: push a `v*` tag after configuring Trusted Publishing (see [`.github/workflows/release.yml`](.github/workflows/release.yml)).
 
 ---
 
@@ -314,11 +341,21 @@ CI: [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Strategy: [`docs/qua
 
 ## Publish & discovery
 
-When build + tests are green, ship for worldwide use with the publish gate:
+Playbook: [`docs/operations/mcp-publish-and-discover.md`](docs/operations/mcp-publish-and-discover.md)
 
-→ [`docs/operations/mcp-publish-and-discover.md`](docs/operations/mcp-publish-and-discover.md)
+| Phase | Status |
+|---|---|
+| 0 Pre-flight | Done |
+| 2 PyPI package + Trusted Publishing workflow | Done (upload on first `v*` tag after PyPI pending publisher) |
+| 3 Deploy HTTPS `/mcp` | Next |
+| 4 Official MCP Registry (`server.json`) | Manifest ready; publish after PyPI |
+| 6+ Directories / GEO | After registry |
 
-PyPI / stdio → deploy `/mcp` → official MCP Registry (`server.json`) → client directories → GEO docs → CI republish on tags.
+```bash
+# after PyPI Trusted Publisher is linked:
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ---
 
@@ -362,4 +399,4 @@ docs/               ADRs, OpenAPI, MCP contracts, ops
 
 ## License
 
-See [`LICENSE`](LICENSE) — all rights reserved until an open-source license is chosen for public PyPI / MCP Registry reuse.
+[MIT](LICENSE) — free to use, modify, and redistribute. Provided as-is; no warranty.

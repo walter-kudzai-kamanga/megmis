@@ -23,8 +23,8 @@ Do not start publishing while mocks-only prototypes are still the only story for
 - [x] Canonical remote: `https://github.com/walter-kudzai-kamanga/megmis.git` (confirm **public** before registry submit)
 - [x] `server.json` (PyPI stdio) + README `<!-- mcp-name: io.github.walter-kudzai-kamanga/megmis -->` + `/.well-known/mcp.json`
 
-**Exit:** “Ready to publish” — not “still building features.” ✅ Phase 0 complete — proceed to Phase 1/2 (package + deploy).  
-**Still before public reuse:** choose an open-source `LICENSE` (current file is all-rights-reserved), commit/push Gen 4 WIP to `origin/main`.
+**Exit:** “Ready to publish” — not “still building features.” ✅ Phase 0 complete.  
+**Public prototype posture:** MIT license; PyPI/registry listings must say **prototype / mock providers** until hosted HTTPS + live adapters are the default story.
 
 ---
 
@@ -57,6 +57,13 @@ megmis-mcp --help   # or: python -m megmis.mcp_stdio
 ```
 
 4. Publish matching **stdio** install snippets in README (absolute command path not required for published package).
+
+**Status (2026-11-15):** ✅ MIT + metadata + `release.yml` (OIDC) + `server.json` + README `mcp-name`.  
+**Manual remaining (you):**  
+1. PyPI → Trusted Publisher for `megmis` (owner `walter-kudzai-kamanga`, repo `megmis`, workflow `release.yml`, env `pypi`).  
+2. `git tag v0.1.0 && git push origin v0.1.0` (triggers upload).  
+3. After PyPI is live: `mcp-publisher login github && mcp-publisher publish`.  
+4. Directory submissions only after PyPI **or** public HTTPS `/mcp`, still labeled prototype.
 
 ---
 
