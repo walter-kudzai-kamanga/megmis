@@ -57,6 +57,12 @@
       ]
     }
   ],
-  "remotes": []
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://megmis-api.onrender.com/mcp/"
+    }
+  ]
 }
+
 

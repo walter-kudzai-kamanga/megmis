@@ -75,9 +75,10 @@ megmis-mcp --help   # or: python -m megmis.mcp_stdio
 4. Document required headers (e.g. API key) and CORS for browser clients if any.
 5. Keep staging and production URLs distinct; only list **production** in public directories.
 
-**Status (2026-11-15):** ✅ deploy artifacts ready — see [deploy-remote-mcp.md](deploy-remote-mcp.md)  
-(`render.yaml`, `fly.toml`, `docker-compose.prod.yml` + Caddy, `scripts/verify_remote_mcp.sh`, `PUBLIC_BASE_URL` allowlist).  
-**Manual remaining:** pick Render / Fly / VPS → set `PUBLIC_BASE_URL` → run verify script → put production URL into `server.json` `remotes`.
+**Status (2026-11-15):** ✅ **Live on Render** — https://megmis-api.onrender.com  
+(`/healthz` ok, `/.well-known/mcp.json` ok, `/mcp/` Streamable HTTP responding).  
+`server.json` `remotes` points at `https://megmis-api.onrender.com/mcp/`.  
+API key: Render Environment → `DEV_API_KEY` (generated; not the local demo key).
 
 ---
 

@@ -2,6 +2,13 @@
 
 Goal: public **HTTPS** Streamable HTTP at `https://<host>/mcp/` with `/healthz` green.
 
+**Production prototype (live):** https://megmis-api.onrender.com  
+- Health: https://megmis-api.onrender.com/healthz  
+- MCP: https://megmis-api.onrender.com/mcp/  
+- Server card: https://megmis-api.onrender.com/.well-known/mcp.json  
+- Dashboard: https://dashboard.render.com/web/srv-dbsvdhe7bikc73cjpqq0  
+- Auth: copy `DEV_API_KEY` from Render → Environment (generated on first Blueprint deploy)
+
 Prototype default: **`USE_PERSISTENCE=false`** (no Postgres/Redis). Full stack uses `docker-compose.prod.yml`.
 
 ---

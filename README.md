@@ -347,7 +347,7 @@ Playbook: [`docs/operations/mcp-publish-and-discover.md`](docs/operations/mcp-pu
 |---|---|
 | 0 Pre-flight | Done |
 | 2 PyPI package + Trusted Publishing workflow | Done (upload on first `v*` tag after PyPI pending publisher) |
-| 3 Deploy HTTPS `/mcp` | Artifacts ready — [deploy-remote-mcp.md](docs/operations/deploy-remote-mcp.md) (you run Render/Fly/VPS) |
+| 3 Deploy HTTPS `/mcp` | **Live:** https://megmis-api.onrender.com (`/mcp/`) |
 | 4 Official MCP Registry (`server.json`) | Manifest ready; publish after PyPI |
 | 6+ Directories / GEO | After registry |
 
