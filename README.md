@@ -18,6 +18,16 @@ Python 3.12 · FastAPI · PostGIS · Redis · official MCP Python SDK
 
 **Status:** MIT-licensed **public prototype (v0.1.0)** — local mocks by default; live providers optional via env. Not a paid SLA or production weather/routing product yet. Listings must say **prototype / mock providers**.
 
+**Naming:** **Mamiriro** is the product; **MEGMIS** is the project acronym (Environmental, Geospatial & Mobility Intelligence Server); **`megmis`** is the PyPI / CLI package.
+
+| Public surface | URL |
+|---|---|
+| PyPI | https://pypi.org/project/megmis/ |
+| Hosted API / MCP | https://megmis-api.onrender.com |
+| MCP Streamable HTTP | https://megmis-api.onrender.com/mcp/ |
+| Server card | https://megmis-api.onrender.com/.well-known/mcp.json |
+| AI catalog | https://megmis-api.onrender.com/.well-known/ai-catalog.json |
+
 Engineering docs live under [`docs/`](docs/README.md).
 
 ---
@@ -227,26 +237,55 @@ Same stdio shape as Cursor — add under MCP servers:
 }
 ```
 
+### Claude Code
+
+Stdio (after `pip install megmis` or `uvx`):
+
+```bash
+claude mcp add mamiriro --env USE_PERSISTENCE=false -- megmis-mcp
+```
+
+Or remote HTTP (when the CLI supports URL transports):
+
+```text
+https://megmis-api.onrender.com/mcp/
+```
+
 ### Remote / HTTP clients
 
-With the API running (`uvicorn` or Docker), point Streamable HTTP clients at:
+Local API (`uvicorn` or Docker):
 
 ```text
 http://127.0.0.1:8000/mcp/
 ```
 
-Production:
+**Hosted prototype (Render):**
 
 ```text
-https://<your-host>/mcp/
+https://megmis-api.onrender.com/mcp/
 ```
 
-Pass `X-API-Key` the way your client supports custom headers (or use tool `api_key` on mutating calls). Example Cursor-style remote entry (when your client supports URL transport):
+Pass `X-API-Key` the way your client supports custom headers (or use tool `api_key` on mutating calls). Cursor-style remote entry:
 
 ```json
 {
   "mcpServers": {
     "mamiriro-http": {
+      "url": "https://megmis-api.onrender.com/mcp/",
+      "headers": {
+        "X-API-Key": "YOUR_RENDER_DEV_API_KEY"
+      }
+    }
+  }
+}
+```
+
+Local override while developing:
+
+```json
+{
+  "mcpServers": {
+    "mamiriro-http-local": {
       "url": "http://127.0.0.1:8000/mcp/",
       "headers": {
         "X-API-Key": "meg_local_devkey00000000000000000001"
@@ -255,6 +294,15 @@ Pass `X-API-Key` the way your client supports custom headers (or use tool `api_k
   }
 }
 ```
+
+### ChatGPT (Connectors / custom MCP)
+
+1. Use a ChatGPT plan that supports custom MCP / connectors.
+2. Add a connector pointing at Streamable HTTP: `https://megmis-api.onrender.com/mcp/`
+3. Send auth as `X-API-Key: <key>` if the UI exposes custom headers (mutating tools require it).
+4. Label the connector **prototype / mock providers** until live adapters are the default.
+
+Discovery without a directory: open `https://megmis-api.onrender.com/.well-known/mcp.json`.
 
 ### Example prompts
 

@@ -101,7 +101,7 @@ mcp-publisher publish server.remote.json
 
 **Status (2026-11-16):** ✅ manifests validate (description ≤100); PyPI live → CI publishes **`server.json`**.  
 `release.yml` `mcp-registry` job uses GitHub OIDC + soft-fail.  
-**Next:** re-dispatch `release` so registry publish runs against the shortened description; verify at registry API.
+**Verify:** `curl 'https://registry.modelcontextprotocol.io/v0.1/servers?search=megmis'` should return the server after a green `mcp-registry` job.
 
 ---
 
@@ -109,11 +109,15 @@ mcp-publisher publish server.remote.json
 
 When a public domain exists (e.g. `mamiriro.<tld>` or org domain):
 
-- [ ] Serve a **Server Card** under `/.well-known/` with CORS allowing client inspection
-- [ ] Serve `/.well-known/ai-catalog.json` pointing at the server card / MCP endpoint
-- [ ] If OAuth-protected: publish protected-resource metadata so clients can discover auth
+- [x] Serve a **Server Card** under `/.well-known/` with CORS allowing client inspection
+- [x] Serve `/.well-known/ai-catalog.json` pointing at the server card / MCP endpoint
+- [ ] If OAuth-protected: publish protected-resource metadata so clients can discover auth *(N/A until OAuth)*
 
 These let clients that only know the domain locate MCP without a directory browse.
+
+**Status (2026-11-16):** ✅ on Render host `megmis-api.onrender.com`  
+(`/.well-known/mcp.json`, `/.well-known/ai-catalog.json`, `Access-Control-Allow-Origin` reflects request Origin).  
+Custom `mamiriro.<tld>` optional later; OAuth PRM deferred.
 
 ---
 
@@ -129,6 +133,7 @@ Submit (or open PRs) with the **same** name, description, and install snippets e
 | Microsoft MCP / Copilot (if pursuing enterprise) | Certification path when available |
 | Glama, MCP.so, PulseMCP, Awesome MCP Servers | PR or form listing + health URL |
 | Official MCP Registry | Already Phase 4 — keep in sync |
+| Smithery | Root `smithery.yaml` + URL/repo submit |
 
 **Listing copy checklist (reuse everywhere):**
 - One-line value prop (Zimbabwe / regional weather + geospatial + safe routing)
@@ -138,16 +143,21 @@ Submit (or open PRs) with the **same** name, description, and install snippets e
 - Link to docs + example prompts
 - Status: prototype vs production providers
 
+**Status (2026-11-16):** ✅ listing pack + `smithery.yaml` in repo — see [mcp-directory-listings.md](mcp-directory-listings.md).  
+**Manual remaining:** submit the pack to ≥3 hubs (Smithery, Glama/mcp.so, Awesome MCP PR, plus Claude/Cursor/ChatGPT portals).
+
 ---
 
 ## Phase 7 — Docs that drive adoption (GEO)
 
 Directory pages are often poorly indexed. Own docs matter most:
 
-- [ ] Landing page or README section: **copy-paste configs** for Claude Code, Cursor, VS Code, Windsurf, ChatGPT
-- [ ] Example prompts that match real tools (`optimize_route` Harare→Bulawayo, weather risk, etc.)
-- [ ] Clear tool annotations (read vs write) for enterprise scanners
-- [ ] Consistent naming: **Mamiriro** / **MEGMIS** / package `megmis` explained once
+- [x] Landing page or README section: **copy-paste configs** for Claude Code, Cursor, VS Code, Windsurf, ChatGPT
+- [x] Example prompts that match real tools (`optimize_route` Harare→Bulawayo, weather risk, etc.)
+- [x] Clear tool annotations (read vs write) for enterprise scanners
+- [x] Consistent naming: **Mamiriro** / **MEGMIS** / package `megmis` explained once
+
+**Status (2026-11-16):** ✅ README public URLs + Claude Code / ChatGPT / remote production snippets.
 
 ---
 
@@ -164,6 +174,9 @@ On every tagged release (`vX.Y.Z`):
 
 See also [cicd-pipeline.md](cicd-pipeline.md) — publishing is an extension of stages 7–9, not a one-off.
 
+**Status (2026-11-16):** ✅ `release.yml` — build, PyPI (`skip-existing`), MCP registry (OIDC, soft-fail), GHCR image push.  
+Render production deploy remains **out-of-band** (Blueprint/auto-deploy from `main`), not duplicated in Actions.
+
 ---
 
 ## Phase 9 — Community proof (ongoing)
@@ -171,6 +184,8 @@ See also [cicd-pipeline.md](cicd-pipeline.md) — publishing is an extension of 
 - Short demo (Harare→Bulawayo explained route + weather risk) on X, YouTube, Reddit (`r/mcp`, etc.)
 - Respond to directory health-check failures quickly (badges drive trust)
 - Re-run this playbook on major version bumps
+
+**Status:** ongoing / human — not started as an agent gate.
 
 ---
 

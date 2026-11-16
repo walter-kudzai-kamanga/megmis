@@ -1,0 +1,51 @@
+# Smithery project config — https://smithery.ai/docs/build/project-config
+# Stdio via PyPI; hosted Streamable HTTP is also at https://megmis-api.onrender.com/mcp/
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    description: Optional env for local Mamiriro (MEGMIS) MCP. Prototype defaults to mock providers.
+    properties:
+      DEV_API_KEY:
+        type: string
+        title: API key
+        description: Optional key for mutating tools / tenant scope (read-only demos can omit).
+      USE_PERSISTENCE:
+        type: string
+        title: Persistence
+        description: Set false for in-memory stdio without Postgres/Redis.
+        default: "false"
+        enum: ["false", "true"]
+      GEOCODE_PROVIDER:
+        type: string
+        title: Geocode provider
+        default: "mock"
+        enum: ["mock", "nominatim"]
+      WEATHER_PROVIDER:
+        type: string
+        title: Weather provider
+        default: "mock"
+        enum: ["mock", "open-meteo", "openweather"]
+      ROUTING_PROVIDER:
+        type: string
+        title: Routing provider
+        default: "mock"
+        enum: ["mock", "osrm", "valhalla", "graphhopper"]
+  commandFunction: |-
+    (config) => ({
+      command: "uvx",
+      args: ["--from", "megmis", "megmis-mcp"],
+      env: {
+        USE_PERSISTENCE: config.USE_PERSISTENCE ?? "false",
+        GEOCODE_PROVIDER: config.GEOCODE_PROVIDER ?? "mock",
+        WEATHER_PROVIDER: config.WEATHER_PROVIDER ?? "mock",
+        ROUTING_PROVIDER: config.ROUTING_PROVIDER ?? "mock",
+        ...(config.DEV_API_KEY ? { DEV_API_KEY: config.DEV_API_KEY } : {}),
+      },
+    })
+  exampleConfig:
+    USE_PERSISTENCE: "false"
+    WEATHER_PROVIDER: "mock"
+    ROUTING_PROVIDER: "mock"
+    GEOCODE_PROVIDER: "mock"

@@ -148,3 +148,44 @@ jobs:
         run: mcp-publisher validate "${{ steps.manifest.outputs.path }}"
       - name: Publish to MCP Registry
         run: mcp-publisher publish "${{ steps.manifest.outputs.path }}"
+
+  # Optional container image for self-hosters (Render already builds from Dockerfile).
+  container:
+    needs: build
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish)
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set image tags
+        id: meta
+        run: |
+          set -euo pipefail
+          OWNER_LC="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          IMAGE="ghcr.io/${OWNER_LC}/megmis"
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="sha-${GITHUB_SHA::7}"
+          fi
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.image }}:latest
