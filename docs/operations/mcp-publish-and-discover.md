@@ -99,9 +99,8 @@ mcp-publisher publish server.remote.json
 4. Verify listing via the official registry API / website.
 5. Automate: on every **semver git tag**, CI republishes `server.json` so versions never go stale (extend [cicd-pipeline.md](cicd-pipeline.md)).
 
-**Status (2026-11-16):** ✅ manifests validate (description ≤100); PyPI live → CI publishes **`server.json`**.  
-`release.yml` `mcp-registry` job uses GitHub OIDC + soft-fail.  
-**Verify:** `curl 'https://registry.modelcontextprotocol.io/v0.1/servers?search=megmis'` should return the server after a green `mcp-registry` job.
+**Status (2026-11-16):** ✅ **Listed** — `io.github.walter-kudzai-kamanga/megmis` @ `0.1.0` (active).  
+Verify: `curl -fsS 'https://registry.modelcontextprotocol.io/v0.1/servers?search=megmis'`
 
 ---
 

@@ -38,12 +38,12 @@ Reuse this copy everywhere. Status: **prototype / mock providers by default**.
 
 | Target | How | Status |
 |---|---|---|
-| Official MCP Registry | CI `mcp-registry` / `mcp-publisher publish server.json` | In progress |
-| Smithery | `smithery.yaml` + https://smithery.ai/new (URL or repo) | Ready to submit |
-| Glama | https://glama.ai/mcp — add server / GitHub | Ready to submit |
-| mcp.so | Submit repo + health URL | Ready to submit |
-| PulseMCP | Submit listing form | Ready to submit |
-| Awesome MCP Servers | PR with one-line entry + link | Ready to submit |
+| Official MCP Registry | CI `mcp-registry` / `mcp-publisher publish server.json` | ✅ Live |
+| Smithery | Proxy/new flow deprecated (Arcade); keep `smithery.yaml` for crawlers | N/A / optional |
+| Glama | Add GitHub repo + claim via root `glama.json` | Ready (needs GitHub sign-in) |
+| mcp.so | https://mcp.so/submit — free review or $39 instant | Ready (needs Sign In / pay) |
+| PulseMCP | Indexes official registry | Should auto-follow registry |
+| Awesome MCP Servers | PR with one-line entry + Glama badge | After Glama |
 | Claude / Anthropic | Connector with remote URL | Manual portal |
 | Cursor directory | Listing + stdio/HTTP configs | Manual |
 | ChatGPT connectors | Remote URL + auth notes | Manual |
