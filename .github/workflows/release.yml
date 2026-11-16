@@ -1,13 +1,11 @@
-# Publish megmis to PyPI on version tags via Trusted Publishing (OIDC).
-# One-time setup on https://pypi.org :
-#   1. Create project "megmis" (or pending publisher) for this repo
-#   2. Trusted publisher → GitHub
-#        Owner: walter-kudzai-kamanga
-#        Repo:  megmis
-#        Workflow: release.yml
-#        Environment: pypi
-#   3. Create GitHub Environment named "pypi" (optional protection rules)
-# Then: git tag v0.1.0 && git push origin v0.1.0
+# Publish megmis to PyPI + MCP Registry.
+# PyPI Trusted Publisher (one-time on https://pypi.org/manage/account/publishing/):
+#   Owner: walter-kudzai-kamanga | Repo: megmis | Workflow: release.yml | Env: pypi
+# GitHub Environment: Settings → Environments → pypi
+#
+# Publish triggers:
+#   - git tag vX.Y.Z && git push origin vX.Y.Z
+#   - Actions → release → Run workflow → publish=true
 
 name: release
 
@@ -15,6 +13,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Also publish to PyPI + MCP Registry (not just build)"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -46,11 +49,16 @@ jobs:
           assert m and m.group(1) == __version__, (m and m.group(1), __version__)
           manifest = json.loads(Path("server.json").read_text())
           assert manifest["version"] == __version__
-          assert manifest["packages"][0]["version"] == __version__
           assert manifest["name"] == MCP_SERVER_NAME
+          packages = manifest.get("packages") or []
+          if packages:
+              assert packages[0]["version"] == __version__
+              assert packages[0]["identifier"] == "megmis"
+          remotes = manifest.get("remotes") or []
+          assert packages or remotes, "server.json needs packages and/or remotes"
           readme = Path("README.md").read_text()
           assert f"mcp-name: {MCP_SERVER_NAME}" in readme
-          print("identity OK", MCP_SERVER_NAME, __version__)
+          print("identity OK", MCP_SERVER_NAME, __version__, "packages", len(packages), "remotes", len(remotes))
           PY
         env:
           PYTHONPATH: src
@@ -66,7 +74,10 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Tag pushes always publish; manual runs only when publish=true (default).
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish)
     environment:
       name: pypi
       url: https://pypi.org/p/megmis
@@ -79,3 +90,35 @@ jobs:
           path: dist/
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  # Official MCP Registry (metadata). Prefer remotes until PyPI package is live;
+  # after PyPI ships, include packages[] so ownership verification can pass.
+  mcp-registry:
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish)
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL -o /tmp/mcp-publisher.tgz \
+            "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz"
+          tar -xzf /tmp/mcp-publisher.tgz -C /tmp mcp-publisher
+          sudo mv /tmp/mcp-publisher /usr/local/bin/mcp-publisher
+      - name: Authenticate (GitHub OIDC)
+        run: mcp-publisher login github-oidc
+      - name: Choose manifest (remote-only until PyPI exists)
+        id: manifest
+        run: |
+          if curl -fsSI "https://pypi.org/pypi/megmis/json" >/dev/null 2>&1; then
+            echo "path=server.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=server.remote.json" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish to MCP Registry
+        run: mcp-publisher publish "${{ steps.manifest.outputs.path }}"
