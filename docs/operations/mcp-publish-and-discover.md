@@ -58,12 +58,8 @@ megmis-mcp --help   # or: python -m megmis.mcp_stdio
 
 4. Publish matching **stdio** install snippets in README (absolute command path not required for published package).
 
-**Status (2026-11-15):** ✅ MIT + metadata + `release.yml` (OIDC) + `server.json` + README `mcp-name`.  
-**Manual remaining (you):**  
-1. PyPI → Trusted Publisher for `megmis` (owner `walter-kudzai-kamanga`, repo `megmis`, workflow `release.yml`, env `pypi`).  
-2. `git tag v0.1.0 && git push origin v0.1.0` (triggers upload).  
-3. After PyPI is live: `mcp-publisher login github && mcp-publisher publish`.  
-4. Directory submissions only after PyPI **or** public HTTPS `/mcp`, still labeled prototype.
+**Status (2026-11-16):** ✅ **Live on PyPI** — https://pypi.org/project/megmis/ (`0.1.0`).  
+Trusted Publisher + `release.yml` tag/`workflow_dispatch` path verified (`v0.1.1` publish green).
 
 ---
 
@@ -103,10 +99,9 @@ mcp-publisher publish server.remote.json
 4. Verify listing via the official registry API / website.
 5. Automate: on every **semver git tag**, CI republishes `server.json` so versions never go stale (extend [cicd-pipeline.md](cicd-pipeline.md)).
 
-**Status (2026-11-15):** ✅ `server.json` + `server.remote.json` validate; `mcp-publisher` installed;  
-`release.yml` has `mcp-registry` job (OIDC). Description ≤100 chars.  
-**Blocked on you:** GitHub device login for `mcp-publisher login github`, then publish.  
-PyPI `megmis` still 404 → first publish uses **`server.remote.json`** (Render URL only).
+**Status (2026-11-16):** ✅ manifests validate (description ≤100); PyPI live → CI publishes **`server.json`**.  
+`release.yml` `mcp-registry` job uses GitHub OIDC + soft-fail.  
+**Next:** re-dispatch `release` so registry publish runs against the shortened description; verify at registry API.
 
 ---
 
