@@ -83,6 +83,7 @@ jobs:
       url: https://pypi.org/p/megmis
     permissions:
       id-token: write
+      contents: read
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -90,12 +91,19 @@ jobs:
           path: dist/
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Avoid attestation failures blocking first Trusted Publisher upload.
+          attestations: false
+          # Retries / re-dispatch after a green publish should not fail the run.
+          skip-existing: true
 
   # Official MCP Registry (metadata). Prefer remotes until PyPI package is live;
   # after PyPI ships, include packages[] so ownership verification can pass.
   mcp-registry:
     needs: [build]
     runs-on: ubuntu-latest
+    # Don't fail the whole release if only the registry job fails.
+    continue-on-error: true
     if: >-
       startsWith(github.ref, 'refs/tags/v') ||
       (github.event_name == 'workflow_dispatch' && inputs.publish)
@@ -104,6 +112,30 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Choose manifest (remote-only until PyPI exists)
+        id: manifest
+        run: |
+          set -euo pipefail
+          if curl -fsS "https://pypi.org/pypi/megmis/json" >/dev/null 2>&1; then
+            echo "path=server.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=server.remote.json" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Preflight validate description length
+        env:
+          MANIFEST_PATH: ${{ steps.manifest.outputs.path }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, sys
+          path = pathlib.Path(os.environ["MANIFEST_PATH"])
+          data = json.loads(path.read_text())
+          desc = data.get("description") or ""
+          print(f"manifest={path} name={data.get('name')} version={data.get('version')} desc_len={len(desc)}")
+          if len(desc) > 100:
+              print(f"::error file={path}::description is {len(desc)} chars; registry caps at 100")
+              sys.exit(1)
+          PY
       - name: Install mcp-publisher
         run: |
           curl -fsSL -o /tmp/mcp-publisher.tgz \
@@ -112,13 +144,7 @@ jobs:
           sudo mv /tmp/mcp-publisher /usr/local/bin/mcp-publisher
       - name: Authenticate (GitHub OIDC)
         run: mcp-publisher login github-oidc
-      - name: Choose manifest (remote-only until PyPI exists)
-        id: manifest
-        run: |
-          if curl -fsSI "https://pypi.org/pypi/megmis/json" >/dev/null 2>&1; then
-            echo "path=server.json" >> "$GITHUB_OUTPUT"
-          else
-            echo "path=server.remote.json" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Validate manifest
+        run: mcp-publisher validate "${{ steps.manifest.outputs.path }}"
       - name: Publish to MCP Registry
         run: mcp-publisher publish "${{ steps.manifest.outputs.path }}"

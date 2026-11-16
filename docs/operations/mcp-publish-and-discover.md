@@ -95,11 +95,18 @@ API key: Render Environment → `DEV_API_KEY` (generated; not the local demo key
 ```bash
 # Install mcp-publisher per current official docs (Homebrew or release binary)
 mcp-publisher login github
-mcp-publisher publish
+# Until PyPI package megmis is live, publish remotes-only:
+mcp-publisher publish server.remote.json
+# After PyPI: mcp-publisher publish server.json
 ```
 
 4. Verify listing via the official registry API / website.
 5. Automate: on every **semver git tag**, CI republishes `server.json` so versions never go stale (extend [cicd-pipeline.md](cicd-pipeline.md)).
+
+**Status (2026-11-15):** ✅ `server.json` + `server.remote.json` validate; `mcp-publisher` installed;  
+`release.yml` has `mcp-registry` job (OIDC). Description ≤100 chars.  
+**Blocked on you:** GitHub device login for `mcp-publisher login github`, then publish.  
+PyPI `megmis` still 404 → first publish uses **`server.remote.json`** (Render URL only).
 
 ---
 

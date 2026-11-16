@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.walter-kudzai-kamanga/megmis",
+  "title": "Mamiriro (MEGMIS)",
+  "description": "PROTOTYPE: Zimbabwe weather, geo, safe routing & journey risk via REST+MCP (stdio/HTTP).",
+  "version": "0.1.0",
+  "websiteUrl": "https://github.com/walter-kudzai-kamanga/megmis",
+  "repository": {
+    "url": "https://github.com/walter-kudzai-kamanga/megmis",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://megmis-api.onrender.com/mcp/"
+    }
+  ]
+}

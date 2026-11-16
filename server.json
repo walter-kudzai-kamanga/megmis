@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.walter-kudzai-kamanga/megmis",
   "title": "Mamiriro (MEGMIS)",
-  "description": "PROTOTYPE: Zimbabwe-focused weather, geospatial, safe routing, road conditions, and journey-risk via REST + MCP (stdio). Default providers are mocks; optional live adapters via env. Not a production SLA.",
+  "description": "PROTOTYPE: Zimbabwe weather, geo, safe routing & journey risk via REST+MCP (stdio/HTTP).",
   "version": "0.1.0",
   "websiteUrl": "https://github.com/walter-kudzai-kamanga/megmis",
   "repository": {
@@ -22,13 +22,13 @@
       "environmentVariables": [
         {
           "name": "DEV_API_KEY",
-          "description": "API key used for mutating tools and tenant-scoped persistence (optional for read-only local demos).",
+          "description": "API key for mutating tools / tenant persistence (optional for read-only demos).",
           "isRequired": false,
           "isSecret": true
         },
         {
           "name": "USE_PERSISTENCE",
-          "description": "Set false for in-memory/mock-friendly local stdio without Postgres/Redis.",
+          "description": "Set false for in-memory local stdio without Postgres/Redis.",
           "isRequired": false,
           "isSecret": false,
           "default": "false"
@@ -64,5 +64,3 @@
     }
   ]
 }
-
-
