@@ -1,5 +1,5 @@
 # Mamiriro (MEGMIS)
-
+[![Mamiriro (MEGMIS) MCP on mcprush](https://mcprush.com/badge/mamiriro-megmis-mcp/score.svg)](https://mcprush.com/to/mamiriro-megmis-mcp?ref=badge)
 <!-- mcp-name: io.github.walter-kudzai-kamanga/megmis -->
 
 **Mamiriro Environmental, Geospatial & Mobility Intelligence Server** — weather, geospatial, explained routing, road conditions, and journey-risk intelligence for Zimbabwe corridors (and beyond), exposed as **REST** and **MCP** (stdio + Streamable HTTP).
